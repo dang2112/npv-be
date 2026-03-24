@@ -1,0 +1,48 @@
+const errorCode = {
+    INCORRECT_USERNAME: {
+        code: 2,
+        message: 'Incorrect username!',
+    },
+    INCORRECT_PASSWORD: {
+        code: 3,
+        message: 'Incorrect password!',
+    },
+    USER_NOT_FOUND: {
+        code: 4,
+        message: 'User not found!',
+    },
+    USER_EXISTED: {
+        code: 5,
+        message: 'Username already exists!',
+    },
+    ROLE_EXISTED: {
+        code: 6,
+        message: 'Role name already exists!',
+    },
+    ROLE_NOT_FOUND: {
+        code: 7,
+        message: 'Role not found!',
+    },
+    DEVICE_NOT_FOUND: {
+        code: 8,
+        message: 'Device not found!',
+    },
+    DEVICE_EXISTED: {
+        code: 9,
+        message: 'Device already exists!',
+    },
+    GOODS_RECEIPT_NOT_FOUND: {
+        code: 10,
+        message: 'Goods receipt not found!',
+    },
+    GOODS_RECEIPT_EXISTED: {
+        code: 11,
+        message: 'Goods receipt already exists!',
+    },
+    INTEGRATION_HISTORY_NOT_FOUND: {
+        code: 12,
+        message: 'Integration history not found!',
+    },
+}
+
+module.exports = { errorCode }
