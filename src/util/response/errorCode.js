@@ -43,6 +43,18 @@ const errorCode = {
         code: 12,
         message: 'Integration history not found!',
     },
+    AUTHENTICATION_FAILED: {
+        code: 401,
+        message: 'Authentication failed!',
+    },
+    BATCHLOT_NOT_FOUND: {
+        code: 404,
+        message: 'Batchlot code does not exist!',
+    },
+    INTERNAL_SERVER_ERROR: {
+        code: 500,
+        message: 'Internal server error. Please try again later!',
+    },
 }
 
 module.exports = { errorCode }

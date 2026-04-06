@@ -5,6 +5,7 @@ const integrationService = {
     getBatchlotInfo: async (batchlot) => {
         try {
             const response = await integrationClient.getBatchlotInfo(batchlot)
+            const res = response.data.data
             IntegrationHistoryModel.create({
                 apiEndpoint: '/batchlot',
                 method: 'GET',
@@ -13,9 +14,9 @@ const integrationService = {
                 httpStatus: response.status,
                 status: 'SUCCESS',
             }).catch(console.error)
-            return response.data
+            return res
         } catch (error) {
-            IntegrationHistoryModel.create({
+            const t = IntegrationHistoryModel.create({
                 apiEndpoint: '/batchlot',
                 method: 'GET',
                 requestPayload: { batchlot },

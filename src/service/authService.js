@@ -108,7 +108,6 @@ const authService = {
                     'permissionIds',
                     'code',
                 )
-                console.log(role)
                 const permissionCodeList = new Set()
                 role.permissionIds.forEach((permission) => {
                     permissionCodeList.add(permission?.code)

@@ -7,6 +7,8 @@ const userRoute = require('./userRoute')
 const deviceRoute = require('./deviceRoute')
 const goodsReceiptRoute = require('./goodsReceiptRoute')
 const integrationHistoryRoute = require('./integrationHistoryRoute')
+const scanRoute = require('./scanRoute')
+
 
 router.use('/role', roleRoute)
 router.use('/auth', authRoute)
@@ -14,6 +16,7 @@ router.use('/user', userRoute)
 router.use('/device', deviceRoute)
 router.use('/goodsReceipt', goodsReceiptRoute)
 router.use('/integrationHistory', integrationHistoryRoute)
+router.use('/scan', scanRoute)
 
 router.get('/batchlot/:code', (req, res) => {
     console.log('Mock batchlot info request:', req.params.code)

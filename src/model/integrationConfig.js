@@ -7,11 +7,11 @@ const integrationConfigSchema = new Schema(
         },
         username: {
             type: String,
-            required: true,
+            // required: true,
         },
         password: {
             type: String,
-            required: true,
+            // required: true,
         },
         token: {
             type: String,

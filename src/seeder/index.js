@@ -2,6 +2,7 @@ require('../config/mongodbConfig')
 const logger = require('../config/loggerConfig')
 const apiSeeder = require('./api')
 const genIdSeeder = require('./genId')
+const integrationConfigSeeder = require('./integrationConfig')
 const permissionSeeder = require('./permission')
 const roleSeeder = require('./role')
 const userSeeder = require('./user')
@@ -31,11 +32,16 @@ async function run() {
                 await genIdSeeder()
                 break
             }
+            case 'integrationConfig': {
+                await integrationConfigSeeder()
+                break
+            }
             case 'all': {
                 await userSeeder()
                 await roleSeeder()
                 await permissionSeeder()
                 await apiSeeder()
+                await integrationConfigSeeder()
                 break
             }
         }

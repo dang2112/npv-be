@@ -7,4 +7,6 @@ router.get('/getById/:goodReceiptId', goodsReceiptController.getById)
 router.get('/getBatchlotInfo/:batchlot', goodsReceiptController.getBatchlotInfo)
 router.post('/updateQRcode', goodsReceiptController.updateQRcode)
 
+router.get('/getDataTest/:batchlot', goodsReceiptController.getDataTest)
+
 module.exports = router
