@@ -3,6 +3,7 @@ const goodsReceiptController = require('../controller/goodsReceiptController')
 const router = express.Router()
 
 // Data endpoints
+router.get('/getScanning', goodsReceiptController.getScanning)
 router.get('/getAll', goodsReceiptController.getAll)
 router.get('/getById/:goodsReceiptId', goodsReceiptController.getById)
 router.get('/getBatchlotInfo/:batchlot', goodsReceiptController.getBatchlotInfo)

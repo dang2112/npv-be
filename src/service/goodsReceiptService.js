@@ -7,6 +7,22 @@ const deviceManager = require('../device/deviceManager')
 const logger = require('../config/loggerConfig')
 
 const goodsReceiptService = {
+    /**
+     * Trả về batchlot đang ở trạng thái SCANNING, kèm stats + danh sách chi tiết.
+     * Luôn chỉ có tối đa 1 batchlot SCANNING tại một thời điểm.
+     */
+    getScanning: async () => {
+        const receipt = await GoodsReceiptModel.findOne({ status: 'SCANNING' }).lean()
+        if (!receipt) return null
+        const detail = await goodsReceiptService.getById(String(receipt._id))
+        return {
+            goodsReceiptId: receipt._id,
+            batchlot: receipt.batchlot,
+            status: receipt.status,
+            ...detail,
+        }
+    },
+
     getAll: async (search = '', page = 1, limit = 10) => {
         try {
             search = RegExp(search, 'i')

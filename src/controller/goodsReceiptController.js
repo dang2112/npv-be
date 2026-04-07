@@ -2,6 +2,15 @@ const goodsReceiptService = require('../service/goodsReceiptService')
 const { response } = require('../util/response/response')
 
 const goodsReceiptController = {
+    getScanning: async (req, res, next) => {
+        try {
+            const result = await goodsReceiptService.getScanning()
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
+
     getAll: async (req, res, next) => {
         try {
             const { search = '', page = 1, limit = 10 } = req.query
