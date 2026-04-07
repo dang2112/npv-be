@@ -1,11 +1,11 @@
 const express = require('express')
-const goodsReceiptController = require('../controller/goodsReceiptController')
 const router = express.Router()
 
-router.get('/getAll', goodsReceiptController.getAll)
-router.get('/getById/:goodReceiptId', goodsReceiptController.getById)
-router.post('/create', goodsReceiptController.create)
-router.post('/update/:goodReceiptId', goodsReceiptController.update)
-router.post('/delete', goodsReceiptController.delete)
+// TODO: implement goodsIssueController khi phát triển tính năng xuất kho
+// const goodsIssueController = require('../controller/goodsIssueController')
+
+// router.get('/getAll', goodsIssueController.getAll)
+// router.get('/getById/:goodsIssueId', goodsIssueController.getById)
+// router.get('/getDOInfo/:doCode', goodsIssueController.getDOInfo)
 
 module.exports = router

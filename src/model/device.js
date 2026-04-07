@@ -5,10 +5,17 @@ const deviceSchema = new Schema(
         deviceName: {
             type: String,
         },
+        // Định danh vai trò cố định của thiết bị
         deviceType: {
             type: String,
-            enum: ['PRINTER', 'SCANNER'],
+            enum: [
+                'SCANNER_IMPORT',        // scanner nhập kho (Cognex DataMan 290X)
+                'SCANNER_EXPORT_ENTRY',  // scanner đầu dây chuyền xuất kho
+                'SCANNER_EXPORT_EXIT',   // scanner cuối dây chuyền xuất kho
+                'PRINTER_DOMINO',        // máy in nhãn DOMINO
+            ],
             required: true,
+            unique: true,
         },
         host: {
             type: String,
@@ -19,6 +26,9 @@ const deviceSchema = new Schema(
         isEnable: {
             type: Boolean,
             required: true,
+        },
+        description: {
+            type: String,
         },
     },
     { timestamps: true },

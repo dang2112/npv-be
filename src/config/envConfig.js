@@ -20,9 +20,8 @@ const envConfig = {
     REDIS_PASSWORD: process.env.REDIS_PASSWORD || 'siginx123',
 
     QAAS_API_URL:
-        process.env.QAAS_API_URL || 'http://qaas-dev.siginx.com/api/v1',
-    // QAAS_API_KEY: process.env.QAAS_API_KEY || 'your-qaas-api-key',
-    QAAS_API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Il9pZCI6IjY4NjUwYTUyZDJiZTgzYmU0MWNiZDhmMSIsImZ1bGxuYW1lIjoicm9vdCIsInVzZXJuYW1lIjoicm9vdCIsIl9fdiI6MCwiY3JlYXRlZEF0IjoiMjAyNi0wMy0zMVQwODoyMzowMS42MzZaIiwidXBkYXRlZEF0IjoiMjAyNi0wMy0zMVQwODoyMzowMS42MzZaIn0sInRzIjoxNzc1MTk3OTEwMzU2LCJpYXQiOjE3NzUxOTc5MTAsImV4cCI6MTc3NTIzMzkxMH0.BjpVWAwYJ0qO2nPRi9ulIcF3LdOsz9R1ZD-PTv1o1P0"
+        process.env.QAAS_API_URL || 'http://localhost:3099',
+    QAAS_API_KEY: process.env.QAAS_API_KEY || 'mock-api-key-qaa',
 }
 
 module.exports = { envConfig }

@@ -1,13 +1,17 @@
 const express = require('express')
+const http = require('http')
+const { Server } = require('socket.io')
 const helmet = require('helmet')
 const compression = require('compression')
 
 require('./config/mongodbConfig')
 require('./config/redisConfig')
+const { seedDevices } = require('./seeder/deviceSeeder')
+seedDevices()
 
 const { envConfig } = require('./config/envConfig')
 const { limiter } = require('./middleware/rateLimit')
-const { authenticated, checkPermission } = require('./middleware/auth')
+const { authenticated } = require('./middleware/auth')
 const { corsMiddleware } = require('./middleware/cors')
 const { BadReq } = require('./util/response/requestError')
 const { response } = require('./util/response/response')
@@ -16,12 +20,12 @@ const logger = require('./config/loggerConfig')
 const routes = require('./route')
 
 const app = express()
-// const server = require('http').createServer(app)
-// const io = require('socket.io')(server, {
-//     cors: {
-//         origin: '*',
-//     },
-// })
+const server = http.createServer(app)
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+    },
+})
 
 app.use(limiter)
 app.use(helmet())
@@ -30,7 +34,6 @@ app.use(compression({ threshold: 100 * 1000 }))
 app.use(express.json())
 
 app.use(authenticated)
-// app.use(checkPermission)
 app.use(envConfig.BASE_URL, routes)
 
 app.use((req, res, next) => {
@@ -44,8 +47,8 @@ app.use((error, req, res, next) => {
     return res.status(error.status || 500).json(response.serverError(error))
 })
 
-// global._io = io
-// global._io.on('connection', connectSocket)
+global._io = io
+io.on('connection', connectSocket)
 
 process.on('unhandledRejection', (reason) => {
     logger.error('Unhandled rejection:', reason)
@@ -57,6 +60,6 @@ process.on('uncaughtException', (error) => {
 })
 
 const port = envConfig.PORT
-app.listen(port, () => {
+server.listen(port, () => {
     logger.info(`Server listing at port ${port}`)
 })

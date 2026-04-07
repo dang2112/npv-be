@@ -1,15 +1,23 @@
-const { Schema, model } = require('mongoose')
+const { Schema, model, Types } = require('mongoose')
 
 const goodsIssueSchema = new Schema(
     {
-        batchlot: {
+        doCode: {
             type: String,
         },
         total: {
-            type: String,
+            type: Number,
         },
+        goodsIssueDetails: [
+            {
+                type: Types.ObjectId,
+                ref: 'goodsIssueDetails',
+            },
+        ],
         status: {
             type: String,
+            enum: ['PENDING', 'SCANNING', 'PAUSED', 'COMPLETED'],
+            default: 'PENDING',
         },
     },
     { timestamps: true },

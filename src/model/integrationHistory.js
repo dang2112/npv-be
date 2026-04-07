@@ -17,7 +17,20 @@ const integrationHistorySchema = new Schema(
         httpStatus: {
             type: Number,
         },
+        // SUCCESS | FAILED
         status: {
+            type: String,
+        },
+        // Mã batchlot hoặc doCode liên quan (để filter log dễ hơn)
+        referenceCode: {
+            type: String,
+        },
+        // Thời gian call API (ms)
+        duration: {
+            type: Number,
+        },
+        // Error message chi tiết khi status = FAILED
+        errorMessage: {
             type: String,
         },
     },

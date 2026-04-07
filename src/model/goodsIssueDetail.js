@@ -12,18 +12,32 @@ const goodsIssueDetailSchema = new Schema(
         productName: {
             type: String,
         },
+        lotNumber: {
+            type: String,   // Lô SX (Batch NO từ DO)
+        },
+        qty: {
+            type: Number,   // Số lượng theo DO
+        },
         qrCode: {
-            type: String,
+            type: String,   // QR của lon sơn
         },
-        index: {
-            type: Number,
+        cartonQR: {
+            type: String,   // QR thùng carton chứa lon này
         },
-        // 1 là chưa kích hoạt, 2 là đã kích hoạt
+        printOrder: {
+            type: Number,   // Thứ tự in nhãn (người vận hành sắp xếp)
+        },
+        // 1: chưa kích hoạt, 2: đã kích hoạt
         qrStatus: {
             type: Number,
+            default: 1,
         },
         isScanned: {
             type: Boolean,
+            default: false,
+        },
+        scannedAt: {
+            type: Date,
         },
     },
     { timestamps: true },

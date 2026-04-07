@@ -1,6 +1,15 @@
 const { BadReq } = require('../util/response/requestError')
 const { errorCode } = require('../util/response/errorCode')
 const DeviceModel = require('../model/device')
+const deviceManager = require('../device/deviceManager')
+
+// Map deviceType → trạng thái connected tương ứng trong deviceManager.getStatus()
+const TYPE_CONNECTED_MAP = (runtime) => ({
+    SCANNER_IMPORT:       runtime.importLine.scanner.connected,
+    SCANNER_EXPORT_ENTRY: runtime.exportLine.entryScanner.connected,
+    SCANNER_EXPORT_EXIT:  runtime.exportLine.exitScanner.connected,
+    PRINTER_DOMINO:       runtime.exportLine.printer.connected,
+})
 
 const deviceService = {
     getAll: async (search = '', page = 1, limit = 10) => {
@@ -10,88 +19,52 @@ const deviceService = {
             limit = Number(limit)
 
             const [items, totalItems] = await Promise.all([
-                DeviceModel.find(
-                    {
-                        deviceName: search,
-                    },
-                    { __v: 0 },
-                )
-                    .sort({ createdAt: -1 })
+                DeviceModel.find({ deviceName: search }, { __v: 0 })
+                    .sort({ createdAt: 1 })
                     .skip((page - 1) * limit)
                     .limit(limit),
-                DeviceModel.countDocuments({
-                    deviceName: search,
-                }),
+                DeviceModel.countDocuments({ deviceName: search }),
             ])
 
-            const data = {
-                items: items,
-                page,
-                totalItems,
-                totalPage: Math.ceil(totalItems / limit),
-            }
-            return data
+            return { items, page, totalItems, totalPage: Math.ceil(totalItems / limit) }
         } catch (error) {
             throw error
         }
     },
-    create: async (device) => {
-        try {
-            const { deviceName } = device
-            const checkName = await DeviceModel.findOne({ deviceName })
-            if (checkName) {
-                throw new BadReq(errorCode.DEVICE_EXISTED)
-            }
 
-            await DeviceModel.create(device)
-
-            return null
-        } catch (error) {
-            throw error
-        }
-    },
     getById: async (deviceId) => {
         try {
-            const data = await DeviceModel.findById(deviceId, {
-                __v: 0,
-            })
-
-            if (!data) {
-                throw new BadReq(errorCode.DEVICE_NOT_FOUND)
-            }
-
+            const data = await DeviceModel.findById(deviceId, { __v: 0 })
+            if (!data) throw new BadReq(errorCode.DEVICE_NOT_FOUND)
             return data
         } catch (error) {
             throw error
         }
     },
+
     update: async (deviceId, device) => {
         try {
-            const { deviceName } = device
             const checkDevice = await DeviceModel.findById(deviceId)
-            if (!checkDevice) {
-                throw new BadReq(errorCode.DEVICE_NOT_FOUND)
-            }
-            const checkName = await DeviceModel.findOne({
-                deviceName,
-                _id: { $ne: deviceId },
-            })
-            if (checkName) {
-                throw new BadReq(errorCode.DEVICE_EXISTED)
-            }
-            const data = await DeviceModel.findByIdAndUpdate(deviceId, device, {
-                new: true,
-                projection: { __v: 0 },
-            })
+            if (!checkDevice) throw new BadReq(errorCode.DEVICE_NOT_FOUND)
+
+            const checkName = await DeviceModel.findOne({ deviceName: device.deviceName, _id: { $ne: deviceId } })
+            if (checkName) throw new BadReq(errorCode.DEVICE_EXISTED)
+
+            const data = await DeviceModel.findByIdAndUpdate(deviceId, device, { new: true, projection: { __v: 0 } })
             return data
         } catch (error) {
             throw error
         }
     },
-    delete: async (deviceIds) => {
+
+    /**
+     * Trả về danh sách 4 thiết bị từ DB, mỗi thiết bị kèm trạng thái kết nối runtime.
+     */
+    getStatus: async () => {
         try {
-            await DeviceModel.deleteMany({ _id: { $in: deviceIds } })
-            return null
+            const devices = await DeviceModel.find({}, { __v: 0 }).sort({ createdAt: 1 }).lean()
+            const connectedMap = TYPE_CONNECTED_MAP(deviceManager.getStatus())
+            return devices.map((d) => ({ ...d, connected: connectedMap[d.deviceType] ?? false }))
         } catch (error) {
             throw error
         }

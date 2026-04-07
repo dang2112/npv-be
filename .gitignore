@@ -4,5 +4,5 @@ node_modules
 docker-compose.yml
 storages
 dist
-minh-anh-staging.tar
-minh-anh.tar
+docs
+mockApiQaa/node_modules

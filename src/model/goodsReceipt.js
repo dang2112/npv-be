@@ -6,7 +6,7 @@ const goodsReceiptSchema = new Schema(
             type: String,
         },
         total: {
-            type: String,
+            type: Number,
         },
         goodsReceiptDetails: [
             {
@@ -16,6 +16,8 @@ const goodsReceiptSchema = new Schema(
         ],
         status: {
             type: String,
+            enum: ['PENDING', 'SCANNING', 'PAUSED', 'COMPLETED'],
+            default: 'PENDING',
         },
     },
     { timestamps: true },

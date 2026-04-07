@@ -1,29 +1,28 @@
 const goodsReceiptService = require('../service/goodsReceiptService')
 const { response } = require('../util/response/response')
 
-const deviceController = {
+const goodsReceiptController = {
     getAll: async (req, res, next) => {
         try {
             const { search = '', page = 1, limit = 10 } = req.query
-            const result = await goodsReceiptService.getAll(
-                search,
-                Number(page),
-                Number(limit),
-            )
+            const result = await goodsReceiptService.getAll(search, Number(page), Number(limit))
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
         }
     },
+
     getById: async (req, res, next) => {
         try {
-            const { goodReceiptId } = req.params
-            const result = await goodsReceiptService.getById(goodReceiptId)
+            const { goodsReceiptId } = req.params
+            const { productCode, status, page, limit } = req.query
+            const result = await goodsReceiptService.getById(goodsReceiptId, { productCode, status, page, limit })
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
         }
     },
+
     getBatchlotInfo: async (req, res, next) => {
         try {
             const { batchlot } = req.params
@@ -33,15 +32,17 @@ const deviceController = {
             next(error)
         }
     },
-    updateQRcode: async (req, res, next) => {
+
+    getCompletionSummary: async (req, res, next) => {
         try {
-            const { batchlot } = req.params
-            const result = await goodsReceiptService.updateQRcode(batchlot)
+            const { goodsReceiptId } = req.params
+            const result = await goodsReceiptService.getCompletionSummary(goodsReceiptId)
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
         }
     },
+
     getDataTest: async (req, res, next) => {
         try {
             const { batchlot } = req.params
@@ -50,8 +51,7 @@ const deviceController = {
         } catch (error) {
             next(error)
         }
-    }
-
+    },
 }
 
-module.exports = deviceController
+module.exports = goodsReceiptController

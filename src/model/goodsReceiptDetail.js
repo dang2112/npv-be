@@ -14,8 +14,22 @@ const goodsReceiptDetailSchema = new Schema(
         index: {
             type: Number,
         },
-        status: {
+        // Trạng thái quét vật lý từ scanner
+        // PENDING: chưa quét, SCANNED: đã quét
+        scanStatus: {
             type: String,
+            enum: ['PENDING', 'SCANNED'],
+            default: 'PENDING',
+        },
+        // Trạng thái kích hoạt qua API QAA
+        // PENDING: chưa kích hoạt, ACTIVATED: đã kích hoạt thành công, ERROR: kích hoạt thất bại
+        activationStatus: {
+            type: String,
+            enum: ['PENDING', 'ACTIVATED', 'ERROR'],
+            default: 'PENDING',
+        },
+        scannedAt: {
+            type: Date,
         },
     },
     { timestamps: true },
