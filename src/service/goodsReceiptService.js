@@ -136,7 +136,12 @@ const goodsReceiptService = {
             const receipt = await GoodsReceiptModel.findById(goodsReceiptId).populate('goodsReceiptDetails')
             if (!receipt) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
 
-            if (!['PENDING', 'PAUSED'].includes(receipt.status)) {
+            if (receipt.status === 'COMPLETED') {
+                throw new BadReq(errorCode.GOODS_RECEIPT_COMPLETED)
+            }
+
+            // Cho phép PENDING, PAUSED, SCANNING (backend restart giữa chừng)
+            if (!['PENDING', 'PAUSED', 'SCANNING'].includes(receipt.status)) {
                 throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
             }
 
@@ -146,7 +151,8 @@ const goodsReceiptService = {
                 await goodsReceiptService._handleScanData(goodsReceiptId, receipt.batchlot, rawData)
             }
 
-            if (receipt.status === 'PAUSED' && deviceManager.importScanner.isConnected()) {
+            // Resume nếu scanner đang kết nối (PAUSED hoặc SCANNING còn socket)
+            if (['PAUSED', 'SCANNING'].includes(receipt.status) && deviceManager.importScanner.isConnected()) {
                 deviceManager.resumeImportLine(handleScanData)
             } else {
                 await deviceManager.connectImportLine(handleScanData)

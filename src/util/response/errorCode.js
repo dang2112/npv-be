@@ -39,6 +39,10 @@ const errorCode = {
         code: 11,
         message: 'Goods receipt already exists!',
     },
+    GOODS_RECEIPT_COMPLETED: {
+        code: 13,
+        message: 'Goods receipt already completed!',
+    },
     INTEGRATION_HISTORY_NOT_FOUND: {
         code: 12,
         message: 'Integration history not found!',

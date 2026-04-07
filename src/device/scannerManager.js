@@ -3,62 +3,81 @@ const logger = require('../config/loggerConfig')
 const DeviceModel = require('../model/device')
 
 /**
- * createScanner — factory tạo TCP server lắng nghe kết nối từ Cognex DataMan 290X.
+ * createScanner — factory tạo TCP client kết nối đến Cognex DataMan 290X.
+ *
+ * Kiến trúc:
+ *   [DataMan 290 — TCP server tại device.host:device.port]
+ *        ▲
+ *        │ TCP connect
+ *   [Backend — TCP client]
+ *
  * @param {string} deviceRole - 'SCANNER_IMPORT' | 'SCANNER_EXPORT_ENTRY' | 'SCANNER_EXPORT_EXIT'
  */
 function createScanner(deviceRole) {
-    let server = null
-    let sockets = []
+    let tcpSocket = null
     let running = false
     let onDataCallback = null
+    let reconnectTimer = null
+    let deviceConfig = null
 
     async function connect(onData) {
         if (running) {
             logger.warn(`[Scanner:${deviceRole}] Đã đang chạy, bỏ qua lệnh connect`)
-            onDataCallback = onData  // cập nhật callback mới nếu resume
+            onDataCallback = onData
             return
         }
 
-        const device = await DeviceModel.findOne({ deviceRole, isEnable: true })
+        const device = await DeviceModel.findOne({ deviceType: deviceRole, isEnable: true })
         if (!device) throw new Error(`Không tìm thấy thiết bị với role: ${deviceRole}`)
 
+        deviceConfig = device
         onDataCallback = onData
+        running = true
 
-        server = net.createServer((socket) => {
-            const addr = `${socket.remoteAddress}:${socket.remotePort}`
-            logger.info(`[Scanner:${deviceRole}] Kết nối từ: ${addr}`)
-            sockets.push(socket)
+        _doConnect()
+    }
 
-            socket.on('data', (data) => {
-                const raw = data.toString().trim()
-                if (raw && onDataCallback) onDataCallback(raw)
-            })
+    function _doConnect() {
+        if (!running || !deviceConfig) return
 
-            socket.on('close', () => {
-                sockets = sockets.filter((s) => s !== socket)
-                logger.info(`[Scanner:${deviceRole}] Ngắt kết nối: ${addr}`)
-                // Thông báo cho frontend biết scanner vừa ngắt kết nối
-                global._io?.emit('device:statusChanged', { role: deviceRole, connected: sockets.length > 0 })
-            })
+        const { host, port } = deviceConfig
 
-            socket.on('error', (err) => {
-                logger.error(`[Scanner:${deviceRole}] Lỗi socket ${addr}: ${err.message}`)
-            })
+        tcpSocket = new net.Socket()
+
+        tcpSocket.connect(port, host, () => {
+            logger.info(`[Scanner:${deviceRole}] Kết nối thành công → ${host}:${port}`)
+            tcpSocket.setTimeout(0) // tắt timeout sau khi kết nối thành công
+            global._io?.emit('device:statusChanged', { role: deviceRole, connected: true })
         })
 
-        server.on('error', (err) => {
-            logger.error(`[Scanner:${deviceRole}] Lỗi server: ${err.message}`)
-            running = false
+        tcpSocket.on('data', (data) => {
+            const raw = data.toString().trim()
+            if (raw && onDataCallback) onDataCallback(raw)
         })
 
-        await new Promise((resolve, reject) => {
-            server.listen(device.port, device.host, () => {
-                running = true
-                logger.info(`[Scanner:${deviceRole}] Đang lắng nghe ${device.host}:${device.port}`)
-                global._io?.emit('device:statusChanged', { role: deviceRole, connected: true })
-                resolve()
-            })
-            server.once('error', reject)
+        tcpSocket.on('close', () => {
+            logger.warn(`[Scanner:${deviceRole}] Mất kết nối`)
+            global._io?.emit('device:statusChanged', { role: deviceRole, connected: false })
+            tcpSocket = null
+
+            // Tự reconnect sau 3 giây nếu vẫn đang running
+            if (running) {
+                reconnectTimer = setTimeout(() => {
+                    logger.info(`[Scanner:${deviceRole}] Thử kết nối lại...`)
+                    _doConnect()
+                }, 3000)
+            }
+        })
+
+        tcpSocket.on('error', (err) => {
+            logger.error(`[Scanner:${deviceRole}] Lỗi TCP: ${err.message}`)
+            // 'close' sẽ được gọi ngay sau 'error', reconnect xử lý ở đó
+        })
+
+        tcpSocket.setTimeout(10000) // 10s timeout khi đang kết nối ban đầu
+        tcpSocket.on('timeout', () => {
+            logger.warn(`[Scanner:${deviceRole}] Timeout kết nối`)
+            tcpSocket.destroy()
         })
     }
 
@@ -73,19 +92,15 @@ function createScanner(deviceRole) {
     }
 
     async function disconnect() {
-        onDataCallback = null
-        sockets.forEach((s) => s.destroy())
-        sockets = []
-        if (server) {
-            await new Promise((resolve) => server.close(resolve))
-            server = null
-        }
         running = false
+        onDataCallback = null
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+        if (tcpSocket) { tcpSocket.destroy(); tcpSocket = null }
         logger.info(`[Scanner:${deviceRole}] Đã ngắt kết nối hoàn toàn`)
     }
 
     function isConnected() {
-        return running
+        return running && tcpSocket !== null && !tcpSocket.destroyed
     }
 
     return { connect, pause, resume, disconnect, isConnected }

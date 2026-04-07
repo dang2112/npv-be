@@ -6,3 +6,4 @@ storages
 dist
 docs
 mockApiQaa/node_modules
+mockServer/node_modules
