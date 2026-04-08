@@ -25,6 +25,10 @@ const integrationHistorySchema = new Schema(
         referenceCode: {
             type: String,
         },
+        // Module gọi API: GOODS_RECEIPT | GOODS_ISSUE
+        module: {
+            type: String,
+        },
         // Thời gian call API (ms)
         duration: {
             type: Number,

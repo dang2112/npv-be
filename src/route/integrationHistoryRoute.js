@@ -3,9 +3,7 @@ const integrationHistoryController = require('../controller/integrationHistoryCo
 const router = express.Router()
 
 router.get('/getAll', integrationHistoryController.getAll)
-router.get(
-    '/getById/:integrationHistoryId',
-    integrationHistoryController.getById,
-)
+router.get('/getById/:integrationHistoryId', integrationHistoryController.getById)
+router.post('/delete', integrationHistoryController.delete)
 
 module.exports = router

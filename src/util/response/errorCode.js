@@ -47,6 +47,10 @@ const errorCode = {
         code: 12,
         message: 'Integration history not found!',
     },
+    INVALID_REQUEST: {
+        code: 14,
+        message: 'Invalid request!',
+    },
     AUTHENTICATION_FAILED: {
         code: 401,
         message: 'Authentication failed!',

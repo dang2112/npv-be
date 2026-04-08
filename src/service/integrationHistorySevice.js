@@ -3,14 +3,21 @@ const { errorCode } = require('../util/response/errorCode')
 const IntegrationHistoryModel = require('../model/integrationHistory')
 
 const integrationHistoryService = {
-    getAll: async (apiEndpoint, page = 1, limit = 10) => {
+    getAll: async (filters = {}, page = 1, limit = 10) => {
         try {
             page = Number(page)
             limit = Number(limit)
 
+            const { status, referenceCode, startDate, endDate, module } = filters
+
             const query = {}
-            if (apiEndpoint) {
-                query.apiEndpoint = apiEndpoint
+            if (status) query.status = status
+            if (referenceCode) query.referenceCode = { $regex: referenceCode, $options: 'i' }
+            if (module) query.module = module
+            if (startDate || endDate) {
+                query.createdAt = {}
+                if (startDate) query.createdAt.$gte = new Date(startDate)
+                if (endDate) query.createdAt.$lte = new Date(endDate)
             }
 
             const [items, totalItems] = await Promise.all([
@@ -21,13 +28,12 @@ const integrationHistoryService = {
                 IntegrationHistoryModel.countDocuments(query),
             ])
 
-            const data = {
-                items: items,
+            return {
+                items,
                 page,
                 totalItems,
                 totalPage: Math.ceil(totalItems / limit),
             }
-            return data
         } catch (error) {
             throw error
         }
@@ -42,6 +48,17 @@ const integrationHistoryService = {
             }
 
             return data
+        } catch (error) {
+            throw error
+        }
+    },
+    delete: async (ids) => {
+        try {
+            if (!Array.isArray(ids) || ids.length === 0) {
+                throw new BadReq(errorCode.INVALID_REQUEST)
+            }
+            const result = await IntegrationHistoryModel.deleteMany({ _id: { $in: ids } })
+            return { deletedCount: result.deletedCount }
         } catch (error) {
             throw error
         }

@@ -8,7 +8,7 @@ const integrationService = {
      * @param {string} [createdAt] - ISO 8601, nếu có thì chỉ lấy QR mới hơn mốc này
      * @returns {object} data — { manufactureBatchlot, totalCount, qrCodes }
      */
-    syncBatchlot: async (manufactureBatchlot, createdAt) => {
+    syncBatchlot: async (manufactureBatchlot, createdAt, module) => {
         const startTime = Date.now()
         const endpoint = '/v1/dmc/batchlot/sync'
         const payload = { manufactureBatchlot, ...(createdAt && { createdAt }) }
@@ -25,6 +25,7 @@ const integrationService = {
                 status: 'SUCCESS',
                 referenceCode: manufactureBatchlot,
                 duration,
+                module,
             }).catch(console.error)
 
             return response.data.data
@@ -40,6 +41,7 @@ const integrationService = {
                 referenceCode: manufactureBatchlot,
                 duration,
                 errorMessage: error.message,
+                module,
             }).catch(console.error)
             throw error
         }
@@ -51,7 +53,7 @@ const integrationService = {
      * @param {string} activatedAt - ISO 8601
      * @param {string} referenceCode - dùng để ghi log
      */
-    activateQRcode: async (qrCode, activatedAt, referenceCode) => {
+    activateQRcode: async (qrCode, activatedAt, referenceCode, module) => {
         const startTime = Date.now()
         const endpoint = '/v1/dmc/qr-code/activation'
         const payload = { qrCode, activationStatus: 1, activatedAt }
@@ -68,6 +70,7 @@ const integrationService = {
                 status: 'SUCCESS',
                 referenceCode: referenceCode || qrCode,
                 duration,
+                module,
             }).catch(console.error)
 
             return response.data.data
@@ -83,6 +86,7 @@ const integrationService = {
                 referenceCode: referenceCode || qrCode,
                 duration,
                 errorMessage: error.message,
+                module,
             }).catch(console.error)
             throw error
         }
@@ -96,7 +100,7 @@ const integrationService = {
      * @param {number} totalScanned
      * @returns {object} data — { manufactureBatchlot, date, dmcTotalActivated, dmcTotalScanned, lrtActivatedCount, isMatched }
      */
-    sendDailyConfirmation: async (manufactureBatchlot, date, totalActivated, totalScanned) => {
+    sendDailyConfirmation: async (manufactureBatchlot, date, totalActivated, totalScanned, module) => {
         const startTime = Date.now()
         const endpoint = '/v1/dmc/daily-confirmation'
         const payload = { manufactureBatchlot, date, totalActivated, totalScanned }
@@ -113,6 +117,7 @@ const integrationService = {
                 status: 'SUCCESS',
                 referenceCode: manufactureBatchlot,
                 duration,
+                module,
             }).catch(console.error)
 
             return response.data.data
@@ -128,6 +133,7 @@ const integrationService = {
                 referenceCode: manufactureBatchlot,
                 duration,
                 errorMessage: error.message,
+                module,
             }).catch(console.error)
             throw error
         }

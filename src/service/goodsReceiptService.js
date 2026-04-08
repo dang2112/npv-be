@@ -93,7 +93,7 @@ const goodsReceiptService = {
      */
     getBatchlotInfo: async (batchlot) => {
         try {
-            const batchlotInfo = await integrationService.syncBatchlot(batchlot)
+            const batchlotInfo = await integrationService.syncBatchlot(batchlot, undefined, 'GOODS_RECEIPT')
                 .catch((axiosError) => {
                     const httpStatus = axiosError.response?.status || axiosError.status
                     if (httpStatus === 401) throw new BadReq(errorCode.AUTHENTICATION_FAILED)
@@ -287,7 +287,7 @@ const goodsReceiptService = {
 
             // Gọi QAA kích hoạt
             try {
-                await integrationService.activateQRcode(qrCode, new Date().toISOString(), batchlot)
+                await integrationService.activateQRcode(qrCode, new Date().toISOString(), batchlot, 'GOODS_RECEIPT')
             } catch (apiErr) {
                 logger.error(`[Scan] Kích hoạt QR thất bại: ${qrCode} — ${apiErr.message}`)
                 await GoodsReceiptDetailModel.findByIdAndUpdate(detail._id, {
