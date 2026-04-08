@@ -37,19 +37,10 @@ const DEVICES = [
     },
 ]
 
-async function seedDevices() {
-    try {
-        for (const device of DEVICES) {
-            await DeviceModel.findOneAndUpdate(
-                { deviceType: device.deviceType },
-                { $setOnInsert: device },
-                { upsert: true },
-            )
-        }
-        logger.info('[Seeder] Devices seeded')
-    } catch (error) {
-        logger.error('[Seeder] Device seeder error:', error.message)
-    }
+async function deviceSeeder() {
+    await DeviceModel.deleteMany({})
+    await DeviceModel.insertMany(DEVICES)
+    logger.info('Devices seeded')
 }
 
-module.exports = { seedDevices }
+module.exports = deviceSeeder

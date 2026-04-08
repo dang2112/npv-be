@@ -6,8 +6,6 @@ const compression = require('compression')
 
 require('./config/mongodbConfig')
 require('./config/redisConfig')
-const { seedDevices } = require('./seeder/deviceSeeder')
-seedDevices()
 
 const { envConfig } = require('./config/envConfig')
 const { limiter } = require('./middleware/rateLimit')
