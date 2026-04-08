@@ -24,8 +24,8 @@ const goodsReceiptController = {
     getById: async (req, res, next) => {
         try {
             const { goodsReceiptId } = req.params
-            const { productCode, status, page, limit } = req.query
-            const result = await goodsReceiptService.getById(goodsReceiptId, { productCode, status, page, limit })
+            const { search, status, page, limit } = req.query
+            const result = await goodsReceiptService.getById(goodsReceiptId, { search, status, page, limit })
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)

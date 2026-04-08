@@ -15,12 +15,7 @@ const goodsReceiptService = {
         const receipt = await GoodsReceiptModel.findOne({ status: 'SCANNING' }).lean()
         if (!receipt) return null
         const detail = await goodsReceiptService.getById(String(receipt._id))
-        return {
-            goodsReceiptId: receipt._id,
-            batchlot: receipt.batchlot,
-            status: receipt.status,
-            ...detail,
-        }
+        return detail
     },
 
     getAll: async (search = '', page = 1, limit = 10) => {
@@ -46,12 +41,12 @@ const goodsReceiptService = {
     /**
      * Lấy danh sách chi tiết của một goods receipt với filter, phân trang và thống kê.
      * @param {string} goodsReceiptId
-     * @param {string} [productCode] - Tìm theo mã sản phẩm (regex, không phân biệt hoa thường)
+     * @param {string} [search] - Tìm theo mã hoặc tên sản phẩm (regex, không phân biệt hoa thường)
      * @param {string} [status] - PENDING: chưa quét | ACTIVATED: đã kích hoạt | ERROR: lỗi kích hoạt
      * @param {number} [page=1]
      * @param {number} [limit=20]
      */
-    getById: async (goodsReceiptId, { productCode = '', status, page = 1, limit = 20 } = {}) => {
+    getById: async (goodsReceiptId, { search = '', status, page = 1, limit = 20 } = {}) => {
         try {
             const receipt = await GoodsReceiptModel.findById(goodsReceiptId).lean()
             if (!receipt) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
@@ -59,7 +54,10 @@ const goodsReceiptService = {
             const baseFilter = { _id: { $in: receipt.goodsReceiptDetails } }
 
             const itemFilter = { ...baseFilter }
-            if (productCode) itemFilter.productCode = RegExp(productCode, 'i')
+            if (search) {
+                const searchRegex = RegExp(search, 'i')
+                itemFilter.$or = [{ productCode: searchRegex }, { productName: searchRegex }]
+            }
             if (status === 'PENDING') itemFilter.scanStatus = 'PENDING'
             else if (status === 'ACTIVATED') itemFilter.activationStatus = 'ACTIVATED'
             else if (status === 'ERROR') itemFilter.activationStatus = 'ERROR'
@@ -77,6 +75,7 @@ const goodsReceiptService = {
             ])
 
             return {
+                receipt: { _id: receipt._id, batchlot: receipt.batchlot, status: receipt.status },
                 stats: { total: totalAll, activated, errors, remaining },
                 items,
                 page,
@@ -159,6 +158,16 @@ const goodsReceiptService = {
             // Cho phép PENDING, PAUSED, SCANNING (backend restart giữa chừng)
             if (!['PENDING', 'PAUSED', 'SCANNING'].includes(receipt.status)) {
                 throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
+            }
+
+            // Tạm dừng batchlot khác đang SCANNING (chỉ 1 batchlot được SCANNING tại một thời điểm)
+            const currentScanning = await GoodsReceiptModel.findOne({
+                status: 'SCANNING',
+                _id: { $ne: goodsReceiptId },
+            })
+            if (currentScanning) {
+                await GoodsReceiptModel.findByIdAndUpdate(currentScanning._id, { status: 'PAUSED' })
+                logger.info(`[Scan] Tạm dừng batchlot ${currentScanning.batchlot} để chuyển sang ${receipt.batchlot}`)
             }
 
             await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, { status: 'SCANNING' })
