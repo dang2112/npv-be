@@ -10,6 +10,7 @@ const goodsReceiptDetailSchema = new Schema(
         },
         qrCode: {
             type: String,
+            index: true,
         },
         index: {
             type: Number,

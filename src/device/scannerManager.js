@@ -13,12 +13,16 @@ const DeviceModel = require('../model/device')
  *
  * @param {string} deviceRole - 'SCANNER_IMPORT' | 'SCANNER_EXPORT_ENTRY' | 'SCANNER_EXPORT_EXIT'
  */
+const MAX_RECONNECT_ATTEMPTS = 10
+const BASE_RECONNECT_DELAY = 3000
+
 function createScanner(deviceRole) {
     let tcpSocket = null
     let running = false
     let onDataCallback = null
     let reconnectTimer = null
     let deviceConfig = null
+    let reconnectAttempts = 0
 
     async function connect(onData) {
         if (running) {
@@ -33,6 +37,7 @@ function createScanner(deviceRole) {
         deviceConfig = device
         onDataCallback = onData
         running = true
+        reconnectAttempts = 0
 
         _doConnect()
     }
@@ -44,9 +49,17 @@ function createScanner(deviceRole) {
 
         tcpSocket = new net.Socket()
 
+        // Timeout chỉ áp dụng trong giai đoạn kết nối ban đầu
+        tcpSocket.setTimeout(10000)
+        tcpSocket.on('timeout', () => {
+            logger.warn(`[Scanner:${deviceRole}] Timeout kết nối`)
+            tcpSocket.destroy()
+        })
+
         tcpSocket.connect(port, host, () => {
             logger.info(`[Scanner:${deviceRole}] Kết nối thành công → ${host}:${port}`)
             tcpSocket.setTimeout(0) // tắt timeout sau khi kết nối thành công
+            reconnectAttempts = 0   // reset counter khi kết nối thành công
             global._io?.emit('device:statusChanged', { role: deviceRole, connected: true })
         })
 
@@ -60,24 +73,27 @@ function createScanner(deviceRole) {
             global._io?.emit('device:statusChanged', { role: deviceRole, connected: false })
             tcpSocket = null
 
-            // Tự reconnect sau 3 giây nếu vẫn đang running
-            if (running) {
-                reconnectTimer = setTimeout(() => {
-                    logger.info(`[Scanner:${deviceRole}] Thử kết nối lại...`)
-                    _doConnect()
-                }, 3000)
+            if (!running) return
+
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                logger.error(`[Scanner:${deviceRole}] Đã thử ${MAX_RECONNECT_ATTEMPTS} lần, dừng kết nối lại`)
+                running = false
+                return
             }
+
+            // Exponential backoff: 3s, 6s, 12s, ... tối đa 60s
+            const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 60000)
+            reconnectAttempts++
+            logger.info(`[Scanner:${deviceRole}] Thử kết nối lại lần ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} sau ${delay / 1000}s...`)
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null
+                _doConnect()
+            }, delay)
         })
 
         tcpSocket.on('error', (err) => {
             logger.error(`[Scanner:${deviceRole}] Lỗi TCP: ${err.message}`)
             // 'close' sẽ được gọi ngay sau 'error', reconnect xử lý ở đó
-        })
-
-        tcpSocket.setTimeout(10000) // 10s timeout khi đang kết nối ban đầu
-        tcpSocket.on('timeout', () => {
-            logger.warn(`[Scanner:${deviceRole}] Timeout kết nối`)
-            tcpSocket.destroy()
         })
     }
 

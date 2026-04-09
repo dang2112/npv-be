@@ -4,6 +4,7 @@ const goodsReceiptSchema = new Schema(
     {
         batchlot: {
             type: String,
+            index: true,
         },
         total: {
             type: Number,

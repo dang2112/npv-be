@@ -1,4 +1,13 @@
 require('dotenv').config()
+
+if (process.env.NODE_ENV === 'production') {
+    const required = ['JWT_ACCESS_TOKEN_PRIVATE_KEY', 'DB_PASSWORD', 'REDIS_PASSWORD', 'QAAS_API_KEY']
+    const missing = required.filter((k) => !process.env[k])
+    if (missing.length > 0) {
+        throw new Error(`[Config] Thiếu biến môi trường bắt buộc trong production: ${missing.join(', ')}`)
+    }
+}
+
 const envConfig = {
     BASE_URL: process.env.BASE_URL || '/npv-dat-my/api',
     PORT: process.env.PORT || 2611,

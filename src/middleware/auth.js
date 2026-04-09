@@ -32,7 +32,7 @@ const authenticated = async (req, res, next) => {
             return res.status(401).json(response.unauthorized('Không có token'))
         }
         req.user = decoded.user
-        req.tokenTs = decoded.user
+        req.tokenTs = decoded.ts
         next()
     } catch (error) {
         logger.error(error)
@@ -59,7 +59,7 @@ const checkPermission = async (req, res, next) => {
         }
         if (listApiNotCheck.every((api) => !url.endsWith(api))) {
             const listApi = await clientRedis.get(
-                `${constant.REDIS_PREFIX_PERMISSION}_${req.userId}`,
+                `${constant.REDIS_PREFIX_PERMISSION}_${req.user._id}`,
             )
             if (!listApi) {
                 return res

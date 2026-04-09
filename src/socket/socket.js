@@ -1,6 +1,11 @@
+const { Types } = require('mongoose')
 const logger = require('../config/loggerConfig')
 const goodsReceiptService = require('../service/goodsReceiptService')
 const deviceService = require('../service/deviceService')
+
+function isValidObjectId(id) {
+    return Types.ObjectId.isValid(id)
+}
 
 /**
  * WebSocket events
@@ -27,14 +32,18 @@ function connectSocket(socket) {
 
     // ── Trạng thái thiết bị (frontend gọi khi vào trang) ───────
     socket.on('device:getStatus', async () => {
-        const status = await deviceService.getStatus()
-        socket.emit('device:status', status)
+        try {
+            const status = await deviceService.getStatus()
+            socket.emit('device:status', status)
+        } catch (err) {
+            logger.error(`[Socket] device:getStatus lỗi: ${err.message}`)
+        }
     })
 
     // ── Bắt đầu quét ───────────────────────────────────────────
     socket.on('receipt:startScan', async ({ goodsReceiptId } = {}) => {
         try {
-            if (!goodsReceiptId) throw new Error('Thiếu goodsReceiptId')
+            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId)) throw new Error('goodsReceiptId không hợp lệ')
             await goodsReceiptService.startScan(goodsReceiptId)
             socket.emit('receipt:ack', {
                 event: 'receipt:startScan',
@@ -43,7 +52,9 @@ function connectSocket(socket) {
                 message: 'Bắt đầu quét thành công',
             })
             // Broadcast trạng thái scanner mới cho tất cả client
-            deviceService.getStatus().then((s) => global._io?.emit('device:statusChanged', s))
+            deviceService.getStatus()
+                .then((s) => global._io?.emit('device:statusChanged', s))
+                .catch((err) => logger.error(`[Socket] Lấy device status lỗi: ${err.message}`))
         } catch (err) {
             logger.error(`[Socket] receipt:startScan lỗi: ${err.message}`)
             socket.emit('receipt:ack', {
@@ -58,7 +69,7 @@ function connectSocket(socket) {
     // ── Tạm dừng quét ──────────────────────────────────────────
     socket.on('receipt:pauseScan', async ({ goodsReceiptId } = {}) => {
         try {
-            if (!goodsReceiptId) throw new Error('Thiếu goodsReceiptId')
+            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId)) throw new Error('goodsReceiptId không hợp lệ')
             await goodsReceiptService.pauseScan(goodsReceiptId)
             socket.emit('receipt:ack', {
                 event: 'receipt:pauseScan',
@@ -80,7 +91,7 @@ function connectSocket(socket) {
     // ── Hoàn thành batchlot ─────────────────────────────────────
     socket.on('receipt:completeScan', async ({ goodsReceiptId } = {}) => {
         try {
-            if (!goodsReceiptId) throw new Error('Thiếu goodsReceiptId')
+            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId)) throw new Error('goodsReceiptId không hợp lệ')
             await goodsReceiptService.completeScan(goodsReceiptId)
             const summary = await goodsReceiptService.getCompletionSummary(goodsReceiptId)
             socket.emit('receipt:ack', {
@@ -90,7 +101,9 @@ function connectSocket(socket) {
                 message: 'Hoàn thành batchlot',
                 data: summary,
             })
-            deviceService.getStatus().then((s) => global._io?.emit('device:statusChanged', s))
+            deviceService.getStatus()
+                .then((s) => global._io?.emit('device:statusChanged', s))
+                .catch((err) => logger.error(`[Socket] Lấy device status lỗi: ${err.message}`))
         } catch (err) {
             logger.error(`[Socket] receipt:completeScan lỗi: ${err.message}`)
             socket.emit('receipt:ack', {

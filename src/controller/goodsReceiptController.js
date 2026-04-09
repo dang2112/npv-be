@@ -51,16 +51,6 @@ const goodsReceiptController = {
             next(error)
         }
     },
-
-    getDataTest: async (req, res, next) => {
-        try {
-            const { batchlot } = req.params
-            const result = await goodsReceiptService.getDataTest(batchlot)
-            return res.status(200).json(response.success(result))
-        } catch (error) {
-            next(error)
-        }
-    },
 }
 
 module.exports = goodsReceiptController

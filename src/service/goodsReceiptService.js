@@ -14,8 +14,7 @@ const goodsReceiptService = {
     getScanning: async () => {
         const receipt = await GoodsReceiptModel.findOne({ status: 'SCANNING' }).lean()
         if (!receipt) return null
-        const detail = await goodsReceiptService.getById(String(receipt._id))
-        return detail
+        return goodsReceiptService.getById(String(receipt._id))
     },
 
     getAll: async (search = '', page = 1, limit = 10) => {
@@ -160,20 +159,18 @@ const goodsReceiptService = {
                 throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
             }
 
-            // Tạm dừng batchlot khác đang SCANNING (chỉ 1 batchlot được SCANNING tại một thời điểm)
-            const currentScanning = await GoodsReceiptModel.findOne({
-                status: 'SCANNING',
-                _id: { $ne: goodsReceiptId },
-            })
-            if (currentScanning) {
-                await GoodsReceiptModel.findByIdAndUpdate(currentScanning._id, { status: 'PAUSED' })
-                logger.info(`[Scan] Tạm dừng batchlot ${currentScanning.batchlot} để chuyển sang ${receipt.batchlot}`)
-            }
+            // Atomic: tạm dừng tất cả batchlot SCANNING khác trong 1 lệnh
+            // Dùng updateMany thay vì findOne + update riêng để tránh race condition
+            await GoodsReceiptModel.updateMany(
+                { status: 'SCANNING', _id: { $ne: goodsReceiptId } },
+                { $set: { status: 'PAUSED' } },
+            )
 
             await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, { status: 'SCANNING' })
 
+            const detailIds = receipt.goodsReceiptDetails.map((d) => d._id)
             const handleScanData = async (rawData) => {
-                await goodsReceiptService._handleScanData(goodsReceiptId, receipt.batchlot, rawData)
+                await goodsReceiptService._handleScanData(goodsReceiptId, receipt.batchlot, rawData, detailIds)
             }
 
             // Resume nếu scanner đang kết nối (PAUSED hoặc SCANNING còn socket)
@@ -214,7 +211,7 @@ const goodsReceiptService = {
             if (!receipt) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
 
             await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, { status: 'COMPLETED' })
-            deviceManager.pauseImportLine()
+            await deviceManager.disconnectImportLine()
             return null
         } catch (error) {
             throw error
@@ -261,8 +258,12 @@ const goodsReceiptService = {
     /**
      * Xử lý 1 lần quét từ scanner.
      * @private
+     * @param {string} goodsReceiptId
+     * @param {string} batchlot
+     * @param {string} rawData
+     * @param {ObjectId[]} detailIds - danh sách _id của goodsReceiptDetails (truyền từ startScan để tránh query thừa)
      */
-    _handleScanData: async (goodsReceiptId, batchlot, rawData) => {
+    _handleScanData: async (goodsReceiptId, batchlot, rawData, detailIds) => {
         try {
             // DataMan 290X thường gửi: <trigger_count>;<barcode_data>;<status>
             const parts = rawData.split(';')
@@ -270,7 +271,8 @@ const goodsReceiptService = {
 
             if (!qrCode) return
 
-            const detail = await GoodsReceiptDetailModel.findOne({ qrCode, _id: { $in: await _getDetailIds(goodsReceiptId) } })
+            const baseFilter = { _id: { $in: detailIds } }
+            const detail = await GoodsReceiptDetailModel.findOne({ qrCode, ...baseFilter })
             const io = global._io
 
             if (!detail) {
@@ -305,8 +307,7 @@ const goodsReceiptService = {
                 scannedAt: new Date(),
             })
 
-            // Tính lại stats
-            const baseFilter = { _id: { $in: await _getDetailIds(goodsReceiptId) } }
+            // Tính lại stats (dùng detailIds đã có sẵn)
             const [total, activated, errors, remaining] = await Promise.all([
                 GoodsReceiptDetailModel.countDocuments(baseFilter),
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ACTIVATED' }),
@@ -326,45 +327,6 @@ const goodsReceiptService = {
             logger.error(`[Scan] Lỗi xử lý scan data: ${error.message}`)
         }
     },
-
-    // Test endpoint giữ lại để phát triển
-    getDataTest: async (batchlot) => {
-        const mockDatabase = [
-            {
-                batchlot: 'BL-2024-001',
-                total: 8,
-                detail: [
-                    { itemCode: 'MTSMBBASEAXXX-4L5', itemName: 'SƠN NƯỚC MATEX SẮC MÀU DỊU MÁT BASE A 4.5L', qrCode: '2000773-001', index: '1', status: 1 },
-                    { itemCode: 'MTSMBBASEAXXX-4L5', itemName: 'SƠN NƯỚC MATEX SẮC MÀU DỊU MÁT BASE A 4.5L', qrCode: '2000773-002', index: '2', status: 1 },
-                    { itemCode: 'OBST-9102XXXX-5L', itemName: 'SƠN NƯỚC ODL BÓNG SANG TRỌNG 9102 WHITE 5L', qrCode: '6059885-001', index: '3', status: 1 },
-                    { itemCode: 'OBST-9102XXXX-5L', itemName: 'SƠN NƯỚC ODL BÓNG SANG TRỌNG 9102 WHITE 5L', qrCode: '6059885-002', index: '4', status: 2 },
-                    { itemCode: 'SMTXBBASEBXXX-5L', itemName: 'SƠN NƯỚC SUPER MATEX BASE B 5L', qrCode: '2000892-001', index: '5', status: 1 },
-                    { itemCode: 'SMTXBBASEBXXX-5L', itemName: 'SƠN NƯỚC SUPER MATEX BASE B 5L', qrCode: '2000892-002', index: '6', status: 1 },
-                    { itemCode: 'VTXX-9102XXXX-17L', itemName: 'SƠN NƯỚC VATEX 9102 WHITE 17L', qrCode: '1007607-001', index: '7', status: 1 },
-                    { itemCode: 'VTXX-9102XXXX-17L', itemName: 'SƠN NƯỚC VATEX 9102 WHITE 17L', qrCode: '1007607-002', index: '8', status: 1 },
-                ],
-                status: 200,
-            },
-            {
-                batchlot: 'BL-2024-002',
-                total: 3,
-                detail: [
-                    { itemCode: 'PROD002', itemName: 'Sản phẩm B', qrCode: 'QR-9999-B', index: '1', status: 1 },
-                    { itemCode: 'PROD002', itemName: 'Sản phẩm B', qrCode: 'QR-9998-B', index: '2', status: 2 },
-                    { itemCode: 'PROD002', itemName: 'Sản phẩm B', qrCode: 'QR-9997-B', index: '3', status: 1 },
-                ],
-                status: 200,
-            },
-        ]
-
-        const result = mockDatabase.find((item) => item.batchlot === batchlot)
-        return result || { batchlot, total: 0, detail: [], status: 404, message: 'Không tìm thấy Batch Lot này' }
-    },
-}
-
-async function _getDetailIds(goodsReceiptId) {
-    const receipt = await GoodsReceiptModel.findById(goodsReceiptId, { goodsReceiptDetails: 1 }).lean()
-    return receipt?.goodsReceiptDetails || []
 }
 
 module.exports = goodsReceiptService

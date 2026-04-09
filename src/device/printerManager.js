@@ -6,11 +6,16 @@ const DeviceModel = require('../model/device')
  * createPrinter — factory tạo TCP client kết nối đến máy in DOMINO.
  * DOMINO đóng vai TCP server, phần mềm chủ động kết nối vào.
  */
+const MAX_RECONNECT_ATTEMPTS = 10
+const BASE_RECONNECT_DELAY = 5000
+
 function createPrinter() {
     let socket = null
     let device = null
     let connected = false
     let reconnectTimer = null
+    let intentionalDisconnect = false
+    let reconnectAttempts = 0
 
     async function connect() {
         if (connected) {
@@ -18,9 +23,11 @@ function createPrinter() {
             return
         }
 
-        device = await DeviceModel.findOne({ deviceRole: 'PRINTER_DOMINO', isEnable: true })
+        device = await DeviceModel.findOne({ deviceType: 'PRINTER_DOMINO', isEnable: true })
         if (!device) throw new Error('Không tìm thấy thiết bị máy in DOMINO')
 
+        intentionalDisconnect = false
+        reconnectAttempts = 0
         await _createConnection()
     }
 
@@ -30,6 +37,7 @@ function createPrinter() {
 
             socket.connect(device.port, device.host, () => {
                 connected = true
+                reconnectAttempts = 0
                 logger.info(`[Printer:DOMINO] Kết nối thành công ${device.host}:${device.port}`)
                 global._io?.emit('device:statusChanged', { role: 'PRINTER_DOMINO', connected: true })
                 resolve()
@@ -42,7 +50,8 @@ function createPrinter() {
             socket.on('close', () => {
                 connected = false
                 logger.warn('[Printer:DOMINO] Mất kết nối')
-                _scheduleReconnect()
+                global._io?.emit('device:statusChanged', { role: 'PRINTER_DOMINO', connected: false })
+                if (!intentionalDisconnect) _scheduleReconnect()
             })
 
             socket.on('error', (err) => {
@@ -55,15 +64,24 @@ function createPrinter() {
 
     function _scheduleReconnect() {
         if (reconnectTimer) return
+
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            logger.error(`[Printer:DOMINO] Đã thử ${MAX_RECONNECT_ATTEMPTS} lần, dừng kết nối lại`)
+            return
+        }
+
+        const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 60000)
+        reconnectAttempts++
+        logger.info(`[Printer:DOMINO] Thử kết nối lại lần ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} sau ${delay / 1000}s...`)
+
         reconnectTimer = setTimeout(async () => {
             reconnectTimer = null
-            logger.info('[Printer:DOMINO] Đang thử kết nối lại...')
             try {
                 await _createConnection()
             } catch (err) {
                 logger.error(`[Printer:DOMINO] Kết nối lại thất bại: ${err.message}`)
             }
-        }, 5000)
+        }, delay)
     }
 
     async function sendJob(jobData) {
@@ -86,6 +104,7 @@ function createPrinter() {
     }
 
     function disconnect() {
+        intentionalDisconnect = true
         if (reconnectTimer) {
             clearTimeout(reconnectTimer)
             reconnectTimer = null
@@ -95,6 +114,7 @@ function createPrinter() {
             socket = null
         }
         connected = false
+        device = null
         logger.info('[Printer:DOMINO] Đã ngắt kết nối')
     }
 
