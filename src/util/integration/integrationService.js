@@ -31,6 +31,11 @@ const integrationService = {
             return response.data.data
         } catch (error) {
             const duration = Date.now() - startTime
+
+            if (error.code === 'ECONNREFUSED') {
+                error.message = 'Không kết nối được đến hệ thống QAA.'
+            }
+
             IntegrationHistoryModel.create({
                 apiEndpoint: endpoint,
                 method: 'POST',

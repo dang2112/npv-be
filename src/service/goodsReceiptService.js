@@ -297,7 +297,34 @@ const goodsReceiptService = {
                     activationStatus: 'ERROR',
                     scannedAt: new Date(),
                 })
-                io?.emit('scan:error', { qrCode, reason: 'Kích hoạt QR thất bại tại QAA' })
+
+                // io?.emit('scan:error', { qrCode, reason: 'Kích hoạt QR thất bại tại QAA' })
+                // Tính lại stats (dùng detailIds đã có sẵn)
+                const [total, activated, errors, remaining] = await Promise.all([
+                    GoodsReceiptDetailModel.countDocuments(baseFilter),
+                    GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ACTIVATED' }),
+                    GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ERROR' }),
+                    GoodsReceiptDetailModel.countDocuments({ ...baseFilter, scanStatus: 'PENDING' }),
+                ])
+                io?.emit('scan:error', {
+                    qrCode,
+                    reason: 'Kích hoạt QR thất bại tại QAA',
+                    productCode: detail.productCode,
+                    productName: detail.productName,
+                    index: detail.index,
+                    stats: { total, activated, errors, remaining },
+                })
+
+                // io?.emit('scan:error', {
+                //     qrCode,
+                //     reason: 'Kích hoạt QR thất bại tại QAA',
+                //     total: currentTotal,
+                //     stats: {
+                //         activated: activatedCount,
+                //         errors: errorCount,
+                //         remaining: remainingCount
+                //     }
+                // });
                 return
             }
 

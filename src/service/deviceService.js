@@ -5,10 +5,10 @@ const deviceManager = require('../device/deviceManager')
 
 // Map deviceType → trạng thái connected tương ứng trong deviceManager.getStatus()
 const TYPE_CONNECTED_MAP = (runtime) => ({
-    SCANNER_IMPORT:       runtime.importLine.scanner.connected,
+    SCANNER_IMPORT: runtime.importLine.scanner.connected,
     SCANNER_EXPORT_ENTRY: runtime.exportLine.entryScanner.connected,
-    SCANNER_EXPORT_EXIT:  runtime.exportLine.exitScanner.connected,
-    PRINTER_DOMINO:       runtime.exportLine.printer.connected,
+    SCANNER_EXPORT_EXIT: runtime.exportLine.exitScanner.connected,
+    PRINTER_DOMINO: runtime.exportLine.printer.connected,
 })
 
 const deviceService = {
@@ -50,6 +50,15 @@ const deviceService = {
             const checkName = await DeviceModel.findOne({ deviceName: device.deviceName, _id: { $ne: deviceId } })
             if (checkName) throw new BadReq(errorCode.DEVICE_EXISTED)
 
+            console.log(device)
+            if (device.host && device.port && device.isEnable) {
+                await deviceManager.connectImportLine(device)
+            }
+            if (device.isEnable) {
+                await deviceManager.connectImportLine(checkDevice)
+            } else {
+                await deviceManager.disconnectImportLine()
+            }
             const data = await DeviceModel.findByIdAndUpdate(deviceId, device, { new: true, projection: { __v: 0 } })
             return data
         } catch (error) {

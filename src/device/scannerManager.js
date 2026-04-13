@@ -24,18 +24,19 @@ function createScanner(deviceRole) {
     let deviceConfig = null
     let reconnectAttempts = 0
 
-    async function connect(onData) {
-        if (running) {
-            logger.warn(`[Scanner:${deviceRole}] Đã đang chạy, bỏ qua lệnh connect`)
-            onDataCallback = onData
-            return
-        }
+    async function connect(device) {
+        await disconnect(); // ngắt kết nối cũ trước khi kết nối mới
 
-        const device = await DeviceModel.findOne({ deviceType: deviceRole, isEnable: true })
+        // if (running) {
+        //     // logger.warn(`[Scanner:${deviceRole}] Đã đang chạy, bỏ qua lệnh connect`)
+        //     // onDataCallback = onData
+        // }
+
+        // const device = await DeviceModel.findOne({ deviceType: deviceRole, isEnable: true })
         if (!device) throw new Error(`Không tìm thấy thiết bị với role: ${deviceRole}`)
 
         deviceConfig = device
-        onDataCallback = onData
+        // onDataCallback = onData
         running = true
         reconnectAttempts = 0
 
@@ -47,6 +48,11 @@ function createScanner(deviceRole) {
 
         const { host, port } = deviceConfig
 
+        if (tcpSocket) {
+            tcpSocket.removeAllListeners();
+            tcpSocket.destroy();
+        }
+
         tcpSocket = new net.Socket()
 
         // Timeout chỉ áp dụng trong giai đoạn kết nối ban đầu
@@ -56,7 +62,7 @@ function createScanner(deviceRole) {
             tcpSocket.destroy()
         })
 
-        tcpSocket.connect(port, host, () => {
+        tcpSocket.connect(port, host, async () => {
             logger.info(`[Scanner:${deviceRole}] Kết nối thành công → ${host}:${port}`)
             tcpSocket.setTimeout(0) // tắt timeout sau khi kết nối thành công
             reconnectAttempts = 0   // reset counter khi kết nối thành công
@@ -111,7 +117,12 @@ function createScanner(deviceRole) {
         running = false
         onDataCallback = null
         if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
-        if (tcpSocket) { tcpSocket.destroy(); tcpSocket = null }
+        if (tcpSocket) {
+            tcpSocket.removeAllListeners();
+            tcpSocket.destroy();
+            tcpSocket = null
+        }
+        global._io?.emit('device:statusChanged', { role: deviceRole, connected: false })
         logger.info(`[Scanner:${deviceRole}] Đã ngắt kết nối hoàn toàn`)
     }
 

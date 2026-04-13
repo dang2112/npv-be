@@ -44,17 +44,38 @@ function connectSocket(socket) {
     socket.on('receipt:startScan', async ({ goodsReceiptId } = {}) => {
         try {
             if (!goodsReceiptId || !isValidObjectId(goodsReceiptId)) throw new Error('goodsReceiptId không hợp lệ')
-            await goodsReceiptService.startScan(goodsReceiptId)
-            socket.emit('receipt:ack', {
-                event: 'receipt:startScan',
-                goodsReceiptId,
-                success: true,
-                message: 'Bắt đầu quét thành công',
-            })
-            // Broadcast trạng thái scanner mới cho tất cả client
-            deviceService.getStatus()
-                .then((s) => global._io?.emit('device:statusChanged', s))
-                .catch((err) => logger.error(`[Socket] Lấy device status lỗi: ${err.message}`))
+            // await goodsReceiptService.startScan(goodsReceiptId)
+            // socket.emit('receipt:ack', {
+            //     event: 'receipt:startScan',
+            //     goodsReceiptId,
+            //     success: true,
+            //     message: 'Bắt đầu quét thành công',
+            // })
+
+            // // Broadcast trạng thái scanner mới cho tất cả client
+            // deviceService.getStatus()
+            //     .then((s) => global._io?.emit('device:statusChanged', s))
+            //     .catch((err) => logger.error(`[Socket] Lấy device status lỗi: ${err.message}`))
+
+            //Check trạng thái thiết bị trước khi bắt đầu quét
+            const deviceStatus = await deviceService.getStatus()
+            const deviceScanerImport = deviceStatus.find(d => d.deviceType === 'SCANNER_IMPORT')
+            if (deviceScanerImport && deviceScanerImport.connected) {
+                await goodsReceiptService.startScan(goodsReceiptId)
+                socket.emit('receipt:ack', {
+                    event: 'receipt:startScan',
+                    goodsReceiptId,
+                    success: true,
+                    message: 'Bắt đầu quét thành công',
+                })
+            } else {
+                socket.emit('receipt:ack', {
+                    event: 'receipt:startScan',
+                    goodsReceiptId,
+                    success: false,
+                    message: 'Thiết bị quét không hoạt động',
+                })
+            }
         } catch (err) {
             logger.error(`[Socket] receipt:startScan lỗi: ${err.message}`)
             socket.emit('receipt:ack', {

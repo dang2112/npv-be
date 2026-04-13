@@ -19,9 +19,9 @@ const domino = createPrinter()
 // NHẬP KHO
 // ─────────────────────────────────────────────
 
-async function connectImportLine(onData) {
+async function connectImportLine(device) {
     logger.info('[DeviceManager] Kết nối dây chuyền nhập kho...')
-    await importScanner.connect(onData)
+    await importScanner.connect(device)
     logger.info('[DeviceManager] Dây chuyền nhập kho sẵn sàng')
 }
 
@@ -99,8 +99,8 @@ function getStatus() {
         },
         exportLine: {
             entryScanner: { role: 'SCANNER_EXPORT_ENTRY', connected: exportEntryScanner.isConnected() },
-            exitScanner:  { role: 'SCANNER_EXPORT_EXIT',  connected: exportExitScanner.isConnected() },
-            printer:      { role: 'PRINTER_DOMINO', ...domino.getStatus() },
+            exitScanner: { role: 'SCANNER_EXPORT_EXIT', connected: exportExitScanner.isConnected() },
+            printer: { role: 'PRINTER_DOMINO', ...domino.getStatus() },
         },
     }
 }

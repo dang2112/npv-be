@@ -6,6 +6,7 @@ const integrationConfigSeeder = require('./integrationConfig')
 const permissionSeeder = require('./permission')
 const roleSeeder = require('./role')
 const userSeeder = require('./user')
+const deviceSeeder = require('./device')
 
 const args = process.argv.slice(2)
 
@@ -36,12 +37,17 @@ async function run() {
                 await integrationConfigSeeder()
                 break
             }
+            case 'device': {
+                await deviceSeeder()
+                break
+            }
             case 'all': {
                 await userSeeder()
                 await roleSeeder()
                 await permissionSeeder()
                 await apiSeeder()
                 await integrationConfigSeeder()
+                await deviceSeeder()
                 break
             }
         }
