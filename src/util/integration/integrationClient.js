@@ -19,8 +19,8 @@ const integrationClient = {
     },
 
     // PATCH /v1/dmc/qr-code/activation
-    activateQRcode: async (qrCode, activatedAt) =>
-        await client.patch('/v1/dmc/qr-code/activation', {
+    activateQRcode: async (endpoint, qrCode, activatedAt) =>
+        await client.patch(endpoint, {
             qrCode,
             activationStatus: 1,
             activatedAt,

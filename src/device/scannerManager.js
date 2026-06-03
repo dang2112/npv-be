@@ -34,7 +34,6 @@ function createScanner(deviceRole) {
 
         // const device = await DeviceModel.findOne({ deviceType: deviceRole, isEnable: true })
         if (!device) throw new Error(`Không tìm thấy thiết bị với role: ${deviceRole}`)
-
         deviceConfig = device
         // onDataCallback = onData
         running = true
@@ -44,9 +43,13 @@ function createScanner(deviceRole) {
     }
 
     function _doConnect() {
+        // console.log("_doConnect")
         if (!running || !deviceConfig) return
 
         const { host, port } = deviceConfig
+        if (host == undefined || port == undefined) {
+            logger.warn(`[Lỗi Device Config]`)
+        }
 
         if (tcpSocket) {
             tcpSocket.removeAllListeners();

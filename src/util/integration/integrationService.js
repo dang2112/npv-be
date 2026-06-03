@@ -10,10 +10,12 @@ const integrationService = {
      */
     syncBatchlot: async (manufactureBatchlot, createdAt, module) => {
         const startTime = Date.now()
-        const endpoint = '/v1/dmc/batchlot/sync'
+        const endpoint = 'v1/dmc/batchlot/sync'
+
         const payload = { manufactureBatchlot, ...(createdAt && { createdAt }) }
         try {
             const response = await integrationClient.syncBatchlot(manufactureBatchlot, createdAt)
+
             const duration = Date.now() - startTime
 
             IntegrationHistoryModel.create({
@@ -63,7 +65,7 @@ const integrationService = {
         const endpoint = '/v1/dmc/qr-code/activation'
         const payload = { qrCode, activationStatus: 1, activatedAt }
         try {
-            const response = await integrationClient.activateQRcode(qrCode, activatedAt)
+            const response = await integrationClient.activateQRcode(endpoint, qrCode, activatedAt)
             const duration = Date.now() - startTime
 
             IntegrationHistoryModel.create({

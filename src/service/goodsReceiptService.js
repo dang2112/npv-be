@@ -64,17 +64,47 @@ const goodsReceiptService = {
             page = Number(page)
             limit = Number(limit)
 
+            // const [items, totalItems, totalAll, activated, errors, remaining] = await Promise.all([
+            //     GoodsReceiptDetailModel.find(itemFilter, { __v: 0 }).sort({ index: 1 }).skip((page - 1) * limit).limit(limit),
+            //     GoodsReceiptDetailModel.countDocuments(itemFilter),
+            //     GoodsReceiptDetailModel.countDocuments(baseFilter),
+            //     GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ACTIVATED' }),
+            //     GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ERROR' }),
+            //     GoodsReceiptDetailModel.countDocuments({ ...baseFilter, scanStatus: 'PENDING' }),
+            // ])
+
             const [items, totalItems, totalAll, activated, errors, remaining] = await Promise.all([
-                GoodsReceiptDetailModel.find(itemFilter, { __v: 0 }).sort({ index: 1 }).skip((page - 1) * limit).limit(limit),
+                // SỬ DỤNG AGGREGATE ĐỂ CUSTOM SORT
+                GoodsReceiptDetailModel.aggregate([
+                    { $match: itemFilter },
+                    {
+                        $addFields: {
+                            sortPriority: {
+                                $switch: {
+                                    branches: [
+                                        { case: { $eq: ["$activationStatus", "ERROR"] }, then: 1 },
+                                        { case: { $eq: ["$scanStatus", "PENDING"] }, then: 2 },
+                                        { case: { $eq: ["$activationStatus", "ACTIVATED"] }, then: 3 }
+                                    ],
+                                    default: 4
+                                }
+                            }
+                        }
+                    },
+                    { $sort: { sortPriority: 1, index: 1 } }, // Ưu tiên trạng thái trước, index sau
+                    { $skip: (page - 1) * limit },
+                    { $limit: limit },
+                    { $project: { sortPriority: 0, __v: 0 } }
+                ]),
                 GoodsReceiptDetailModel.countDocuments(itemFilter),
                 GoodsReceiptDetailModel.countDocuments(baseFilter),
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ACTIVATED' }),
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ERROR' }),
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, scanStatus: 'PENDING' }),
-            ])
+            ]);
 
             return {
-                receipt: { _id: receipt._id, batchlot: receipt.batchlot, status: receipt.status },
+                receipt: { _id: receipt._id, batchlot: receipt.batchlot, status: receipt.status, quantityPerCarton: receipt.quantityPerCarton },
                 stats: { total: totalAll, activated, errors, remaining },
                 items,
                 page,
@@ -149,15 +179,14 @@ const goodsReceiptService = {
         try {
             const receipt = await GoodsReceiptModel.findById(goodsReceiptId).populate('goodsReceiptDetails')
             if (!receipt) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
-
-            if (receipt.status === 'COMPLETED') {
-                throw new BadReq(errorCode.GOODS_RECEIPT_COMPLETED)
-            }
+            // if (receipt.status === 'COMPLETED') {
+            //     throw new BadReq(errorCode.GOODS_RECEIPT_COMPLETED)
+            // }
 
             // Cho phép PENDING, PAUSED, SCANNING (backend restart giữa chừng)
-            if (!['PENDING', 'PAUSED', 'SCANNING'].includes(receipt.status)) {
-                throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
-            }
+            // if (!['PENDING', 'PAUSED', 'SCANNING'].includes(receipt.status)) {
+            //     throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
+            // }
 
             // Atomic: tạm dừng tất cả batchlot SCANNING khác trong 1 lệnh
             // Dùng updateMany thay vì findOne + update riêng để tránh race condition
@@ -169,8 +198,13 @@ const goodsReceiptService = {
             await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, { status: 'SCANNING' })
 
             const detailIds = receipt.goodsReceiptDetails.map((d) => d._id)
+            const configScanData = {
+                batchlot: receipt.batchlot,
+                quantityPerCarton: receipt.quantityPerCarton || 0,
+                quantityScanned: receipt.quantityScanned || 0,
+            }
             const handleScanData = async (rawData) => {
-                await goodsReceiptService._handleScanData(goodsReceiptId, receipt.batchlot, rawData, detailIds)
+                await goodsReceiptService._handleScanData(goodsReceiptId, receipt.batchlot, rawData, detailIds, configScanData)
             }
 
             // Resume nếu scanner đang kết nối (PAUSED hoặc SCANNING còn socket)
@@ -263,14 +297,19 @@ const goodsReceiptService = {
      * @param {string} rawData
      * @param {ObjectId[]} detailIds - danh sách _id của goodsReceiptDetails (truyền từ startScan để tránh query thừa)
      */
-    _handleScanData: async (goodsReceiptId, batchlot, rawData, detailIds) => {
+    _handleScanData: async (goodsReceiptId, batchlot, rawData, detailIds, configScanData) => {
         try {
+            if (configScanData.quantityScanned > configScanData.quantityPerCarton) {
+                logger.info(`[Scan] Số lượng quét đã đủ trên carton, vui lòng đổi carton mới`)
+                const io = global._io
+                io?.emit('scan:cartonCompleted', { scannedEnough: true, message: 'Số lượng quét đã đủ trên carton, vui lòng đổi carton mới' })
+                return
+            }
             // DataMan 290X thường gửi: <trigger_count>;<barcode_data>;<status>
             const parts = rawData.split(';')
             const qrCode = parts.length > 1 ? parts[1].trim() : rawData.trim()
 
             if (!qrCode) return
-
             const baseFilter = { _id: { $in: detailIds } }
             const detail = await GoodsReceiptDetailModel.findOne({ qrCode, ...baseFilter })
             const io = global._io
@@ -281,15 +320,29 @@ const goodsReceiptService = {
                 return
             }
 
-            if (detail.scanStatus === 'SCANNED') {
-                logger.info(`[Scan] QR đã quét trước đó: ${qrCode}`)
-                io?.emit('scan:duplicate', { qrCode, productName: detail.productName, scannedAt: detail.scannedAt })
-                return
-            }
+            // if (detail.scanStatus === 'SCANNED') {
+            //     logger.info(`[Scan] QR đã quét trước đó: ${qrCode}`)
+            //     io?.emit('scan:duplicate', { qrCode, productName: detail.productName, scannedAt: detail.scannedAt })
+            //     return
+            // }
 
             // Gọi QAA kích hoạt
             try {
                 await integrationService.activateQRcode(qrCode, new Date().toISOString(), batchlot, 'GOODS_RECEIPT')
+                console.log('Kích hoạt QR thành công')
+                configScanData.quantityScanned++
+                // Cập nhật số lượng đã quét thành công
+                await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, {
+                    quantityScanned: configScanData.quantityScanned,
+                })
+                if (configScanData.quantityPerCarton === configScanData.quantityScanned) {
+                    logger.info(`[Scan] Đã quét đủ số lượng trên carton, tự động pause để đổi carton mới`)
+                    // ĐIỀU KHIỂN STOPPER dừng lại
+                    io?.emit('scan:cartonCompleted', { scannedEnough: true })
+                    await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, {
+                        quantityScanned: 0,
+                    })
+                }
             } catch (apiErr) {
                 logger.error(`[Scan] Kích hoạt QR thất bại: ${qrCode} — ${apiErr.message}`)
                 await GoodsReceiptDetailModel.findByIdAndUpdate(detail._id, {
@@ -347,6 +400,7 @@ const goodsReceiptService = {
                 productCode: detail.productCode,
                 productName: detail.productName,
                 index: detail.index,
+                scannedAt: new Date(),
                 stats: { total, activated, errors, remaining },
             })
             io?.emit('scan:stats', { total, activated, errors, remaining })
@@ -354,6 +408,20 @@ const goodsReceiptService = {
             logger.error(`[Scan] Lỗi xử lý scan data: ${error.message}`)
         }
     },
+
+    update: async (goodsReceiptId, updateData) => {
+        try {
+            const { quantityPerCarton } = updateData
+            const receipt = await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, { quantityPerCarton }, {
+                new: true,
+                select: 'quantityPerCarton'
+            })
+            if (!receipt) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
+            return receipt
+        } catch (error) {
+            throw error
+        }
+    }
 }
 
 module.exports = goodsReceiptService

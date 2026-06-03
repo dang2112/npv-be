@@ -2,6 +2,8 @@ const { Types } = require('mongoose')
 const logger = require('../config/loggerConfig')
 const goodsReceiptService = require('../service/goodsReceiptService')
 const deviceService = require('../service/deviceService')
+const deviceManager = require('../device/deviceManager')
+const GoodsReceiptModel = require('../model/goodsReceipt')
 
 function isValidObjectId(id) {
     return Types.ObjectId.isValid(id)
@@ -27,13 +29,58 @@ function isValidObjectId(id) {
  *   receipt:ack            { event, goodsReceiptId, success, message, data? }
  *   device:status          { importLine, exportLine }  ← phản hồi device:getStatus
  */
+
+let isStart = true;
 function connectSocket(socket) {
     logger.info(`[Socket] Client kết nối: ${socket.id}`)
+
+    // if (isStart) {
+    //     //Check nhập kho đang Scanning thì bật lại startScan
+    //     (async () => {
+    //         try {
+    //             isStart = false;
+    //             const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
+    //             if (activeReceipt) {
+    //                 const status = await deviceService.getStatus();
+    //                 const device = status.find(d => d.deviceType === "SCANNER_IMPORT" && d.isEnable);
+    //                 if (device) {
+    //                     await goodsReceiptService.startScan(activeReceipt._id)
+    //                     // socket.emit('receipt:ack', {
+    //                     //     event: 'receipt:startScan',
+    //                     //     goodsReceiptId: activeReceipt._id,
+    //                     //     success: true,
+    //                     //     message: 'Đang có phiên quét hoạt động, tự động khôi phục',
+    //                     // });
+    //                 }
+    //             }
+    //         } catch (err) {
+    //             logger.error(`[Socket] isStart lỗi: ${err.message}`);
+    //         }
+    //     })(); // <--- () này để thực thi hàm ngay lập tức
+    // }
+
 
     // ── Trạng thái thiết bị (frontend gọi khi vào trang) ───────
     socket.on('device:getStatus', async () => {
         try {
             const status = await deviceService.getStatus()
+            const devices = status.filter(d => d.isEnable)
+            for (const device of devices) {
+                try {
+                    switch (device.deviceType) {
+                        case "SCANNER_IMPORT":
+                            await deviceManager.connectImportLine(device);
+                            if (device.connected) {
+                                const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
+                                await goodsReceiptService.startScan(activeReceipt._id)
+                            }
+                            break;
+                    }
+
+                } catch (connErr) {
+                    logger.error(`Lỗi kết nối thiết bị ${device.deviceName}: ${connErr.message}`);
+                }
+            }
             socket.emit('device:status', status)
         } catch (err) {
             logger.error(`[Socket] device:getStatus lỗi: ${err.message}`)
@@ -60,6 +107,7 @@ function connectSocket(socket) {
             //Check trạng thái thiết bị trước khi bắt đầu quét
             const deviceStatus = await deviceService.getStatus()
             const deviceScanerImport = deviceStatus.find(d => d.deviceType === 'SCANNER_IMPORT')
+
             if (deviceScanerImport && deviceScanerImport.connected) {
                 await goodsReceiptService.startScan(goodsReceiptId)
                 socket.emit('receipt:ack', {

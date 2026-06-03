@@ -9,4 +9,5 @@ router.get('/getBatchlotInfo/:batchlot', goodsReceiptController.getBatchlotInfo)
 router.get('/getCompletionSummary/:goodsReceiptId', goodsReceiptController.getCompletionSummary)
 // Điều khiển dây chuyền (start/pause/complete) → qua WebSocket: receipt:startScan, receipt:pauseScan, receipt:completeScan
 
+router.put('/update/:goodsReceiptId', goodsReceiptController.update)
 module.exports = router

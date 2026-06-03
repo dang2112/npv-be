@@ -10,7 +10,6 @@ const goodsReceiptController = {
             next(error)
         }
     },
-
     getAll: async (req, res, next) => {
         try {
             const { search = '', page = 1, limit = 10 } = req.query
@@ -51,6 +50,15 @@ const goodsReceiptController = {
             next(error)
         }
     },
+    update: async (req, res, next) => {
+        try {
+            const { goodsReceiptId } = req.params
+            const result = await goodsReceiptService.update(goodsReceiptId, req.body)
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    }
 }
 
 module.exports = goodsReceiptController

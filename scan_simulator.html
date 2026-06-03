@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Giả Lập Máy Quét Mastercode</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f4f6f9;
+                margin: 0;
+                padding: 20px;
+                color: #333;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                background: #fff;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            h2 {
+                text-align: center;
+                color: #2c3e50;
+            }
+            .dashboard {
+                display: flex;
+                justify-content: space-around;
+                background: #ecf0f1;
+                padding: 20px;
+                border-radius: 6px;
+                margin-bottom: 20px;
+            }
+            .stat-box {
+                text-align: center;
+            }
+            .stat-box h3 {
+                margin: 0;
+                color: #7f8c8d;
+                font-size: 14px;
+                text-transform: uppercase;
+            }
+            .stat-box p {
+                margin: 5px 0 0;
+                font-size: 32px;
+                font-weight: bold;
+                color: #2980b9;
+            }
+
+            .scan-area {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            input[type='text'] {
+                flex: 1;
+                padding: 12px;
+                font-size: 16px;
+                border: 2px solid #bdc3c7;
+                border-radius: 4px;
+                outline: none;
+            }
+            input[type='text']:focus {
+                border-color: #3498db;
+            }
+            button {
+                padding: 12px 24px;
+                background: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            button:hover {
+                background: #27ae60;
+            }
+
+            .error-msg {
+                color: #e74c3c;
+                font-weight: bold;
+                margin-bottom: 10px;
+                display: none;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th,
+            td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            th {
+                background-color: #34495e;
+                color: white;
+            }
+            tr:nth-child(even) {
+                background-color: #f9f9f9;
+            }
+            .success-row {
+                animation: highlight 1s ease-out;
+            }
+            @keyframes highlight {
+                0% {
+                    background-color: #2ecc71;
+                    color: white;
+                }
+                100% {
+                    background-color: transparent;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>MÔ PHỎNG HỆ THỐNG SCAN MASTERCODE</h2>
+
+            <div class="dashboard">
+                <div class="stat-box">
+                    <h3>Tổng số lượt Scan</h3>
+                    <p id="totalScans">0</p>
+                </div>
+                <div class="stat-box">
+                    <h3>Tổng số lượng sản phẩm (Packing)</h3>
+                    <p id="totalQuantity" style="color: #2ecc71">0</p>
+                </div>
+            </div>
+
+            <div class="scan-area">
+                <input
+                    type="text"
+                    id="barcodeInput"
+                    placeholder="Bắn hoặc dán mã vào đây (Ví dụ: MC04-021120-070716-5H8H)..."
+                    autofocus
+                    autocomplete="off"
+                />
+                <button id="scanBtn">Mô phỏng Quét</button>
+            </div>
+            <div id="errorLog" class="error-msg">
+                Mã không đúng định dạng Mastercode (MC...)
+            </div>
+
+            <h3>Lịch sử quét thực tế</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Thời gian</th>
+                        <th>Mã Mastercode</th>
+                        <th>Số lượng (Packing)</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTable"></tbody>
+            </table>
+        </div>
+
+        <script>
+            const barcodeInput = document.getElementById('barcodeInput')
+            const scanBtn = document.getElementById('scanBtn')
+            const errorLog = document.getElementById('errorLog')
+            const totalScansElem = document.getElementById('totalScans')
+            const totalQuantityElem = document.getElementById('totalQuantity')
+            const historyTable = document.getElementById('historyTable')
+
+            let scanCount = 0
+            let totalQuantity = 0
+
+            // Hàm xử lý khi nhận được mã barcode
+            function handleScan(rawData) {
+                rawData = rawData.trim()
+                if (!rawData) return
+
+                // Regex kiểm tra cấu trúc: Bắt đầu bằng MC, theo sau là số (packing), rồi đến dấu gạch ngang
+                // Ví dụ: MC04-021120-070716-5H8H
+                const regex = /^MC(\d+)-/
+                const match = rawData.match(regex)
+
+                if (!match) {
+                    errorLog.style.display = 'block'
+                    errorLog.innerText = `Mã "${rawData}" sai cấu trúc quy định!`
+                    barcodeInput.value = ''
+                    return
+                }
+
+                // Ẩn lỗi nếu có
+                errorLog.style.display = 'none'
+
+                // Lấy số packing (vị trí match[1] chính là phần số nằm giữa MC và dấu -)
+                const packingQuantity = parseInt(match[1], 10)
+
+                // Cập nhật bộ đếm
+                scanCount += 1
+                totalQuantity += packingQuantity
+
+                // Cập nhật giao diện Dashboard
+                totalScansElem.innerText = scanCount
+                totalQuantityElem.innerText = totalQuantity
+
+                // Thêm một dòng vào bảng lịch sử
+                const now = new Date()
+                const timeStr = now.toLocaleTimeString()
+
+                const row = document.createElement('tr')
+                row.className = 'success-row'
+                row.innerHTML = `
+            <td>${scanCount}</td>
+            <td>${timeStr}</td>
+            <td><strong>${rawData}</strong></td>
+            <td><span style="color:#27ae60; font-weight:bold;">+${packingQuantity}</span></td>
+        `
+
+                // Chèn lên đầu bảng để dễ nhìn
+                historyTable.insertBefore(row, historyTable.firstChild)
+
+                // Xóa text box để sẵn sàng cho lượt quét tiếp theo
+                barcodeInput.value = ''
+                barcodeInput.focus()
+            }
+
+            // Sự kiện 1: Nhấn nút "Mô phỏng Quét"
+            scanBtn.addEventListener('click', () => {
+                handleScan(barcodeInput.value)
+            })
+
+            // Sự kiện 2: Khi súng quét bắn mã vào sẽ tự động nhấn Enter
+            barcodeInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleScan(barcodeInput.value)
+                }
+            })
+        </script>
+    </body>
+</html>

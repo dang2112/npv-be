@@ -9,6 +9,14 @@ const goodsReceiptSchema = new Schema(
         total: {
             type: Number,
         },
+        quantityPerCarton: {
+            type: Number,
+            default: 12,
+        },
+        quantityScanned: {
+            type: Number,
+            default: 0,
+        },
         goodsReceiptDetails: [
             {
                 type: Types.ObjectId,
