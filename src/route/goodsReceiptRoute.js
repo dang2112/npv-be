@@ -10,4 +10,5 @@ router.get('/getCompletionSummary/:goodsReceiptId', goodsReceiptController.getCo
 // Điều khiển dây chuyền (start/pause/complete) → qua WebSocket: receipt:startScan, receipt:pauseScan, receipt:completeScan
 
 router.put('/update/:goodsReceiptId', goodsReceiptController.update)
+router.put('/activateQRcode', goodsReceiptController.activateQRcode)
 module.exports = router

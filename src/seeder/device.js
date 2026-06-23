@@ -12,6 +12,14 @@ const DEVICES = [
         description: 'Cognex DataMan 290X - dây chuyền nhập kho',
     },
     {
+        deviceName: 'Scanner Zip MasterCode',
+        deviceType: 'SCANNER_ZIP_MASTER_CODE',
+        host: '192.168.1.100',
+        port: 23,
+        isEnable: true,
+        description: 'Zebra TC51 - Zip MasterCode',
+    },
+    {
         deviceName: 'Scanner Đầu Chuyền Xuất Kho',
         deviceType: 'SCANNER_EXPORT_ENTRY',
         host: '192.168.1.101',

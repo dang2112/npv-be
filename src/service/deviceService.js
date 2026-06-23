@@ -17,9 +17,19 @@ const deviceService = {
             search = RegExp(search, 'i')
             page = Number(page)
             limit = Number(limit)
+            const deviceType = process.env.ROLE || "ROLE_IMPORT"
+            let type = ""
+
+            if (deviceType == "ROLE_IMPORT") {
+                typeFilter = ["SCANNER_IMPORT", "SCANNER_ZIP_MASTER_CODE"]
+            }
+            const filter = {
+                deviceName: search,
+                deviceType: Array.isArray(typeFilter) ? { $in: typeFilter } : typeFilter
+            }
 
             const [items, totalItems] = await Promise.all([
-                DeviceModel.find({ deviceName: search }, { __v: 0 })
+                DeviceModel.find(filter, { __v: 0 })
                     .sort({ createdAt: 1 })
                     .skip((page - 1) * limit)
                     .limit(limit),
@@ -59,12 +69,22 @@ const deviceService = {
                     case 'SCANNER_IMPORT':
                         await deviceManager.connectImportLine(checkDevice)
                         break;
+                    case 'SCANNER_ZIP_MASTER_CODE':
+                        await deviceManager.connectZipMasterCode(checkDevice)
+                        break;
+
                 }
+
             } else {
                 switch (checkDevice.deviceType) {
                     case 'SCANNER_IMPORT':
                         await deviceManager.disconnectImportLine()
                         break;
+
+                    case 'SCANNER_ZIP_MASTER_CODE':
+                        await deviceManager.disconnectZipMasterCode()
+                        break;
+
                 }
 
             }

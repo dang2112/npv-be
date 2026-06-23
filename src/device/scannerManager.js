@@ -11,7 +11,7 @@ const DeviceModel = require('../model/device')
  *        │ TCP connect
  *   [Backend — TCP client]
  *
- * @param {string} deviceRole - 'SCANNER_IMPORT' | 'SCANNER_EXPORT_ENTRY' | 'SCANNER_EXPORT_EXIT'
+ * @param {string} deviceRole - 'SCANNER_IMPORT' | 'SCANNER_ZIP_MASTER_CODE' | 'SCANNER_EXPORT_ENTRY' | 'SCANNER_EXPORT_EXIT'
  */
 const MAX_RECONNECT_ATTEMPTS = 10
 const BASE_RECONNECT_DELAY = 3000
@@ -67,6 +67,10 @@ function createScanner(deviceRole) {
 
         tcpSocket.connect(port, host, async () => {
             logger.info(`[Scanner:${deviceRole}] Kết nối thành công → ${host}:${port}`)
+            global.scannerSockets ??= {}
+            global.scannerSockets[deviceRole] = tcpSocket
+
+
             tcpSocket.setTimeout(0) // tắt timeout sau khi kết nối thành công
             reconnectAttempts = 0   // reset counter khi kết nối thành công
             global._io?.emit('device:statusChanged', { role: deviceRole, connected: true })
@@ -117,6 +121,9 @@ function createScanner(deviceRole) {
     }
 
     async function disconnect() {
+
+        delete global.scannerSockets?.[deviceRole]
+
         running = false
         onDataCallback = null
         if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }

@@ -15,6 +15,10 @@ const goodsReceiptDetailSchema = new Schema(
         index: {
             type: Number,
         },
+        zipMasterCode: {
+            type: String,
+            default: null,
+        },
         // Trạng thái quét vật lý từ scanner
         // PENDING: chưa quét, SCANNED: đã quét
         scanStatus: {
@@ -31,6 +35,7 @@ const goodsReceiptDetailSchema = new Schema(
         },
         scannedAt: {
             type: Date,
+            default: null,
         },
     },
     { timestamps: true },

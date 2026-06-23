@@ -124,6 +124,12 @@ io.on('connection', (wsSocket) => {
                 emitStatus(role)
             })
 
+            clientSocket.on('trigger', () => {
+                instance.clients = instance.clients.filter(s => s !== clientSocket)
+                broadcast('warn', `[${role}] Nhận trigger từ backend`)
+                emitStatus(role)
+            })
+
             clientSocket.on('error', (err) => {
                 broadcast('error', `[${role}] Lỗi client socket: ${err.message}`)
             })
@@ -208,7 +214,7 @@ io.on('connection', (wsSocket) => {
         instance.triggerCount++
         const payload = `${instance.triggerCount};;0\r\n`
 
-        instance.clients.forEach(s => { try { s.write(payload) } catch (_) {} })
+        instance.clients.forEach(s => { try { s.write(payload) } catch (_) { } })
         broadcast('warn', `[${role}] → NO_READ: ${payload.trim()}`)
         emitStatus(role)
     })

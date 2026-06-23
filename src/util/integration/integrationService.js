@@ -15,7 +15,6 @@ const integrationService = {
         const payload = { manufactureBatchlot, ...(createdAt && { createdAt }) }
         try {
             const response = await integrationClient.syncBatchlot(manufactureBatchlot, createdAt)
-
             const duration = Date.now() - startTime
 
             IntegrationHistoryModel.create({
@@ -67,7 +66,6 @@ const integrationService = {
         try {
             const response = await integrationClient.activateQRcode(endpoint, qrCode, activatedAt)
             const duration = Date.now() - startTime
-
             IntegrationHistoryModel.create({
                 apiEndpoint: endpoint,
                 method: 'PATCH',
@@ -79,7 +77,6 @@ const integrationService = {
                 duration,
                 module,
             }).catch(console.error)
-
             return response.data.data
         } catch (error) {
             const duration = Date.now() - startTime

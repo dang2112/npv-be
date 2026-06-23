@@ -1,4 +1,5 @@
 const goodsReceiptService = require('../service/goodsReceiptService')
+const integrationService = require('../util/integration/integrationService')
 const { response } = require('../util/response/response')
 
 const goodsReceiptController = {
@@ -40,7 +41,6 @@ const goodsReceiptController = {
             next(error)
         }
     },
-
     getCompletionSummary: async (req, res, next) => {
         try {
             const { goodsReceiptId } = req.params
@@ -58,7 +58,16 @@ const goodsReceiptController = {
         } catch (error) {
             next(error)
         }
-    }
+    },
+    activateQRcode: async (req, res, next) => {
+        try {
+            const { qrCode, batchlot } = req.body
+            const result = integrationService.activateQRcode(qrCode, new Date().toISOString(), batchlot, 'GOODS_RECEIPT');
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
 }
 
 module.exports = goodsReceiptController

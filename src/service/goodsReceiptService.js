@@ -88,12 +88,34 @@ const goodsReceiptService = {
                                     ],
                                     default: 4
                                 }
-                            }
+                            },
                         }
                     },
                     { $sort: { sortPriority: 1, index: 1 } }, // Ưu tiên trạng thái trước, index sau
                     { $skip: (page - 1) * limit },
                     { $limit: limit },
+                    {
+                        $lookup: {
+                            from: "integrationHistories",
+                            let: { refCode: "$qrCode" },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: { $eq: ["$referenceCode", "$$refCode"] },
+                                        status: "FAILED" // Chỉ lấy các log thất bại
+                                    }
+                                },
+                                { $sort: { createdAt: -1 } }, // Lấy log mới nhất
+                                { $limit: 1 }
+                            ],
+                            as: "errorLog"
+                        }
+                    },
+                    {
+                        $addFields: {
+                            errorMessage: { $arrayElemAt: ["$errorLog.errorMessage", 0] }
+                        }
+                    },
                     { $project: { sortPriority: 0, __v: 0 } }
                 ]),
                 GoodsReceiptDetailModel.countDocuments(itemFilter),
@@ -102,7 +124,6 @@ const goodsReceiptService = {
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ERROR' }),
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, scanStatus: 'PENDING' }),
             ]);
-
             return {
                 receipt: { _id: receipt._id, batchlot: receipt.batchlot, status: receipt.status, quantityPerCarton: receipt.quantityPerCarton },
                 stats: { total: totalAll, activated, errors, remaining },
@@ -133,13 +154,15 @@ const goodsReceiptService = {
             const existingReceipt = await GoodsReceiptModel.findOne({ batchlot }).populate('goodsReceiptDetails')
 
             // activationStatus=1 trong QAA = đã kích hoạt trước đó
-            const mapDetail = (p) => ({
-                productCode: p.itemCode,
-                productName: p.itemName,
-                qrCode: p.qrCode,
-                scanStatus: p.activationStatus === 1 ? 'SCANNED' : 'PENDING',
-                activationStatus: p.activationStatus === 1 ? 'ACTIVATED' : 'PENDING',
-            })
+            const mapDetail = (p) => (
+                {
+                    productCode: p.itemCode,
+                    productName: p.itemName,
+                    qrCode: p.qrCode,
+                    scanStatus: p.activationStatus === 1 ? 'SCANNED' : 'PENDING',
+                    activationStatus: p.activationStatus === 1 ? 'ACTIVATED' : 'PENDING',
+                    zipMasterCode: p.zipMasterCode || null,
+                })
 
             let receiptId
             if (!existingReceipt) {
@@ -155,7 +178,6 @@ const goodsReceiptService = {
                 // Merge: thêm QR mới chưa có trong DB, giữ nguyên QR đã quét
                 const existingQRs = new Set(existingReceipt.goodsReceiptDetails.map((d) => d.qrCode))
                 const newDetails = batchlotInfo.qrCodes.filter((p) => !existingQRs.has(p.qrCode)).map(mapDetail)
-
                 if (newDetails.length > 0) {
                     const inserted = await GoodsReceiptDetailModel.insertMany(newDetails)
                     await GoodsReceiptModel.findByIdAndUpdate(existingReceipt._id, {
@@ -196,13 +218,24 @@ const goodsReceiptService = {
             )
 
             await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, { status: 'SCANNING' })
-
             const detailIds = receipt.goodsReceiptDetails.map((d) => d._id)
+            const qrScanned = receipt.goodsReceiptDetails.filter(
+                (d) => d.scanStatus === 'SCANNED' && d.activationStatus === 'ACTIVATED' && d.zipMasterCode === null
+            );
+
+            const qrScannedCodes = qrScanned.map((d) => d.qrCode);
+
+
             const configScanData = {
                 batchlot: receipt.batchlot,
                 quantityPerCarton: receipt.quantityPerCarton || 0,
-                quantityScanned: receipt.quantityScanned || 0,
+                // quantityScanned: receipt.quantityScanned || 0,
+                quantityScanned: qrScannedCodes.length || 0,
+                item: qrScanned.map((d) => d.qrCode),
+                // item: qrScanned,
+                itemError: [],
             }
+
             const handleScanData = async (rawData) => {
                 await goodsReceiptService._handleScanData(goodsReceiptId, receipt.batchlot, rawData, detailIds, configScanData)
             }
@@ -210,8 +243,10 @@ const goodsReceiptService = {
             // Resume nếu scanner đang kết nối (PAUSED hoặc SCANNING còn socket)
             if (['PAUSED', 'SCANNING'].includes(receipt.status) && deviceManager.importScanner.isConnected()) {
                 deviceManager.resumeImportLine(handleScanData)
+                deviceManager.resumeZipMasterCode(handleScanData)
             } else {
                 await deviceManager.connectImportLine(handleScanData)
+                await deviceManager.connectZipMasterCode(handleScanData)
             }
 
             return null
@@ -299,66 +334,172 @@ const goodsReceiptService = {
      */
     _handleScanData: async (goodsReceiptId, batchlot, rawData, detailIds, configScanData) => {
         try {
-            if (configScanData.quantityScanned > configScanData.quantityPerCarton) {
-                logger.info(`[Scan] Số lượng quét đã đủ trên carton, vui lòng đổi carton mới`)
-                const io = global._io
-                io?.emit('scan:cartonCompleted', { scannedEnough: true, message: 'Số lượng quét đã đủ trên carton, vui lòng đổi carton mới' })
-                return
+            console.log("Raw Data nhận được:", rawData);
+            if (!rawData) return;
+
+            // ĐƯA LÊN ĐẦU HÀM: Khai báo 'io' ngay lập tức để toàn bộ hàm phía dưới đều dùng được
+            const io = global._io;
+
+            let qrCode = "";
+            let isZipMasterCode = false;
+            const partsMasterCode = rawData.split('-');
+
+            // 1. Phân tách thiết bị và làm sạch dữ liệu QR
+            if (partsMasterCode.length > 1 && partsMasterCode[0].startsWith('MC')) {
+                isZipMasterCode = true;
+                qrCode = rawData.trim();
+                const quantityInCode = Number(partsMasterCode[0].substring(2));
+                // Kiểm tra xem số lượng định dạng trên mã thùng có khớp với cấu hình hệ thống không
+                if (quantityInCode !== configScanData.quantityPerCarton) {
+                    logger.warn(`[Scan] Mã Master Code không khớp với cấu hình hệ thống`);
+
+                    io?.emit('scan:error', {
+                        qrCode: qrCode,
+                        listScanned: configScanData.item.map(code => ({ qrCode: code, status: 'success' })),
+                        message: `Mã Master Code sai định dạng số lượng sản phẩm (Yêu cầu loại chứa ${configScanData.quantityPerCarton} sản phẩm)`
+                    });
+                    return; // Ngắt luồng, không xử lý mã thùng sai cấu hình
+                }
+            } else {
+                isZipMasterCode = false;
+                if (rawData.includes(';')) {
+                    const parts = rawData.split(';');
+                    qrCode = parts.length > 1 ? parts[1].trim() : rawData.trim();
+                } else {
+                    qrCode = rawData.trim();
+                }
             }
-            // DataMan 290X thường gửi: <trigger_count>;<barcode_data>;<status>
-            const parts = rawData.split(';')
-            const qrCode = parts.length > 1 ? parts[1].trim() : rawData.trim()
 
-            if (!qrCode) return
-            const baseFilter = { _id: { $in: detailIds } }
-            const detail = await GoodsReceiptDetailModel.findOne({ qrCode, ...baseFilter })
-            const io = global._io
+            // 2. ZIP MASTER CODE
+            if (configScanData.quantityScanned >= configScanData.quantityPerCarton) {
+                logger.info(`[Scan] Số lượng quét đã đủ, vui lòng quét Master Code`);
+                io?.emit('scan:cartonCompleted', {
+                    isCompletedToPack: true,
+                    listScanned: configScanData.item.map(code => ({ qrCode: code, status: 'success' })),
+                    message: 'Số lượng sản phẩm đã đủ vui lòng quét Master Code'
+                });
 
+                // ĐIỀU KHIỂN STOPPER dừng lại qua cổng TCP Cognex
+                const scannerSocket = global.scannerSockets?.['SCANNER_IMPORT'];
+                if (scannerSocket) {
+                    scannerSocket.write('||>OUTPUT.USER1\r\n');
+                    logger.info('[Scan] Đã gửi TRIGGER USER1 tới Cognex');
+                }
+
+
+                // Nếu người dùng quét mã thùng Zebra khi carton đã đầy
+                if (isZipMasterCode) {
+                    logger.info(`[Zebra TC51] Mã ZipMasterCode: ${qrCode}`);
+
+                    if (configScanData.item.length > 0) {
+                        // Cập nhật mã thùng thực tế vừa quét cho toàn bộ sản phẩm đang chờ đóng carton
+                        await GoodsReceiptDetailModel.updateMany(
+                            { qrCode: { $in: configScanData.item } },
+                            { $set: { zipMasterCode: qrCode } }
+                        );
+
+                        io?.emit('scan:cartonCompleted', {
+                            isCompletedToPack: true,
+                            mastercode: qrCode,
+                            listScanned: configScanData.item.map(code => ({ qrCode: code, status: 'success' })),
+                            message: `Đã đóng thùng thành công với mã: ${qrCode}`
+                        });
+
+                        // // Reset bộ đếm carton tạm thời
+                        configScanData.item = [];
+                        configScanData.quantityScanned = 0;
+
+                        // Cập nhật lại số lượng quét trên đơn về 0 để chuẩn bị cho carton mới
+                        await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, { quantityScanned: 0 });
+                    }
+                }
+                return;
+            }
+
+            // 3. CHẶN NẾU THÙNG ĐANG TRỐNG MÀ LẠI QUÉT MÃ THÙNG TRƯỚC
+            if (isZipMasterCode) {
+                logger.error(`[Zebra TC51] Mã ZipMasterCode nhưng thùng đang trống: ${qrCode}`);
+                io?.emit('scan:error', { qrCode, reason: 'Thùng đang trống, vui lòng quét sản phẩm trước.' });
+                return;
+            }
+
+            // 4. QUÉT SẢN PHẨM
+            if (!qrCode) return;
+
+            const baseFilter = { _id: { $in: detailIds } };
+            const detail = await GoodsReceiptDetailModel.findOne({ qrCode, ...baseFilter });
             if (!detail) {
-                logger.warn(`[Scan] QR không thuộc batchlot: ${qrCode}`)
-                io?.emit('scan:error', { qrCode, reason: 'QR không thuộc batchlot này' })
+                logger.warn(`[Scan] QR không thuộc batchlot: ${qrCode}`);
+                io?.emit('scan:error', { qrCode, message: 'QR không thuộc batchlot này' });
+                return;
+            }
+            // Kiểm tra trùng mã lẻ nếu cần (bỏ comment nếu muốn chặn quét trùng)
+            if (detail.activationStatus === "SUCCESS" && detail.scanStatus === 'SCANNED') {
+                logger.info(`[Scan] QR đã quét trước đó: ${qrCode}`)
+                io?.emit('scan:duplicate', { qrCode, productName: detail.productName, scannedAt: detail.scannedAt, message: "Mã QR đã được quét trước đó" })
+                io?.emit('scan:cartonCompleted', {
+                    isCompletedToPack: false,
+                    listScanned: configScanData.item.map(code => ({ qrCode: code, status: 'success' }))
+                });
                 return
             }
-
-            // if (detail.scanStatus === 'SCANNED') {
-            //     logger.info(`[Scan] QR đã quét trước đó: ${qrCode}`)
-            //     io?.emit('scan:duplicate', { qrCode, productName: detail.productName, scannedAt: detail.scannedAt })
-            //     return
-            // }
-
-            // Gọi QAA kích hoạt
+            // 5. GỌI QAA KÍCH HOẠT QR CODE
             try {
-                await integrationService.activateQRcode(qrCode, new Date().toISOString(), batchlot, 'GOODS_RECEIPT')
-                console.log('Kích hoạt QR thành công')
-                configScanData.quantityScanned++
-                // Cập nhật số lượng đã quét thành công
+                await integrationService.activateQRcode(qrCode, new Date().toISOString(), batchlot, 'GOODS_RECEIPT');
+                configScanData.quantityScanned++;
+
+                // Cập nhật số lượng đã quét thành công vào DB đơn tổng
                 await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, {
                     quantityScanned: configScanData.quantityScanned,
-                })
+                });
+
+                configScanData.item.push(qrCode);
+
+                io?.emit('scan:cartonCompleted', {
+                    isCompletedToPack: false,
+                    listScanned: configScanData.item.map(code => ({ qrCode: code, status: 'success' }))
+                });
+
+                // Nếu vừa vặn quét đủ số lượng cho 1 carton, ra lệnh dừng stopper tự động
                 if (configScanData.quantityPerCarton === configScanData.quantityScanned) {
-                    logger.info(`[Scan] Đã quét đủ số lượng trên carton, tự động pause để đổi carton mới`)
-                    // ĐIỀU KHIỂN STOPPER dừng lại
-                    io?.emit('scan:cartonCompleted', { scannedEnough: true })
-                    await GoodsReceiptModel.findByIdAndUpdate(goodsReceiptId, {
-                        quantityScanned: 0,
-                    })
+                    logger.info(`[Scan] Đã quét đủ số lượng trên carton, tự động dừng băng tải để đổi carton mới`);
+
+                    // ĐIỀU KHIỂN STOPPER dừng lại qua cổng TCP Cognex
+                    const scannerSocket = global.scannerSockets?.['SCANNER_IMPORT'];
+                    if (scannerSocket) {
+                        scannerSocket.write('||>OUTPUT.USER1\r\n');
+                        logger.info('[Scan] Đã gửi TRIGGER OFF tới Cognex');
+                    }
+
+                    io?.emit('scan:cartonCompleted', {
+                        isCompletedToPack: true,
+                        listScanned: configScanData.item.map(code => ({ qrCode: code, status: 'success' })),
+                        message: 'Vui lòng quét Master code'
+                    });
                 }
+
             } catch (apiErr) {
-                logger.error(`[Scan] Kích hoạt QR thất bại: ${qrCode} — ${apiErr.message}`)
+                logger.error(`[Scan] Kích hoạt QR thất bại: ${qrCode} — ${apiErr.message}`);
+
                 await GoodsReceiptDetailModel.findByIdAndUpdate(detail._id, {
                     scanStatus: 'SCANNED',
                     activationStatus: 'ERROR',
                     scannedAt: new Date(),
-                })
+                });
 
-                // io?.emit('scan:error', { qrCode, reason: 'Kích hoạt QR thất bại tại QAA' })
-                // Tính lại stats (dùng detailIds đã có sẵn)
                 const [total, activated, errors, remaining] = await Promise.all([
                     GoodsReceiptDetailModel.countDocuments(baseFilter),
                     GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ACTIVATED' }),
                     GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ERROR' }),
                     GoodsReceiptDetailModel.countDocuments({ ...baseFilter, scanStatus: 'PENDING' }),
-                ])
+                ]);
+
+                // Đảm bảo mảng itemError tồn tại trước khi push
+                configScanData.itemError ??= [];
+                if (!configScanData.itemError.includes(qrCode)) {
+                    configScanData.itemError.push(qrCode);
+                }
+
                 io?.emit('scan:error', {
                     qrCode,
                     reason: 'Kích hoạt QR thất bại tại QAA',
@@ -366,34 +507,35 @@ const goodsReceiptService = {
                     productName: detail.productName,
                     index: detail.index,
                     stats: { total, activated, errors, remaining },
-                })
+                    listScannedError: configScanData.itemError
+                });
 
-                // io?.emit('scan:error', {
-                //     qrCode,
-                //     reason: 'Kích hoạt QR thất bại tại QAA',
-                //     total: currentTotal,
-                //     stats: {
-                //         activated: activatedCount,
-                //         errors: errorCount,
-                //         remaining: remainingCount
-                //     }
-                // });
-                return
+                const listScannedBefore = [
+                    ...configScanData.item.map(code => ({ qrCode: code, status: 'success' })),
+                    ...configScanData.itemError.map(code => ({ qrCode: code, status: 'error' })),
+                ];
+
+                io?.emit('scan:cartonCompleted', {
+                    isCompletedToPack: false,
+                    listScanned: listScannedBefore
+                });
+
+                return;
             }
 
+            // 6. CẬP NHẬT TRẠNG THÁI KHI KÍCH HOẠT THÀNH CÔNG VÀ TÍNH TOÁN STATS
             await GoodsReceiptDetailModel.findByIdAndUpdate(detail._id, {
                 scanStatus: 'SCANNED',
                 activationStatus: 'ACTIVATED',
                 scannedAt: new Date(),
-            })
+            });
 
-            // Tính lại stats (dùng detailIds đã có sẵn)
             const [total, activated, errors, remaining] = await Promise.all([
                 GoodsReceiptDetailModel.countDocuments(baseFilter),
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ACTIVATED' }),
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, activationStatus: 'ERROR' }),
                 GoodsReceiptDetailModel.countDocuments({ ...baseFilter, scanStatus: 'PENDING' }),
-            ])
+            ]);
 
             io?.emit('scan:success', {
                 qrCode,
@@ -402,10 +544,12 @@ const goodsReceiptService = {
                 index: detail.index,
                 scannedAt: new Date(),
                 stats: { total, activated, errors, remaining },
-            })
-            io?.emit('scan:stats', { total, activated, errors, remaining })
+            });
+
+            io?.emit('scan:stats', { total, activated, errors, remaining });
+
         } catch (error) {
-            logger.error(`[Scan] Lỗi xử lý scan data: ${error.message}`)
+            logger.error(`[Scan] Lỗi hệ thống nghiêm trọng trong _handleScanData: ${error.message}`);
         }
     },
 

@@ -11,6 +11,7 @@ const { createPrinter } = require('./printerManager')
  */
 
 const importScanner = createScanner('SCANNER_IMPORT')
+const zipMasterCodeScanner = createScanner('SCANNER_ZIP_MASTER_CODE')
 const exportEntryScanner = createScanner('SCANNER_EXPORT_ENTRY')
 const exportExitScanner = createScanner('SCANNER_EXPORT_EXIT')
 const domino = createPrinter()
@@ -38,6 +39,31 @@ function resumeImportLine(onData) {
 async function disconnectImportLine() {
     await importScanner.disconnect()
     logger.info('[DeviceManager] Đã ngắt dây chuyền nhập kho')
+}
+
+// ─────────────────────────────────────────────
+// ZIP MASTER CODE
+// ─────────────────────────────────────────────
+
+async function connectZipMasterCode(device) {
+    logger.info('[DeviceManager] Kết nối máy quét zip Master Code nhập kho...')
+    await zipMasterCodeScanner.connect(device)
+    logger.info('[DeviceManager] máy quét zip Master Code nhập kho sẵn sàng')
+}
+
+function pauseZipMasterCode() {
+    zipMasterCodeScanner.pause()
+    logger.info('[DeviceManager] Tạm dừng máy quét zip Master Code nhập kho')
+}
+
+function resumeZipMasterCode(onData) {
+    zipMasterCodeScanner.resume(onData)
+    logger.info('[DeviceManager] Tiếp tục máy quét zip Master Code nhập kho')
+}
+
+async function disconnectZipMasterCode() {
+    await zipMasterCodeScanner.disconnect()
+    logger.info('[DeviceManager] Đã ngắt máy quét zip Master Code')
 }
 
 // ─────────────────────────────────────────────
@@ -96,6 +122,7 @@ function getStatus() {
     return {
         importLine: {
             scanner: { role: 'SCANNER_IMPORT', connected: importScanner.isConnected() },
+            scannerZipMasterCode: { role: 'SCANNER_ZIP_MASTER_CODE', connected: importScanner.isConnected() },
         },
         exportLine: {
             entryScanner: { role: 'SCANNER_EXPORT_ENTRY', connected: exportEntryScanner.isConnected() },
@@ -117,6 +144,12 @@ module.exports = {
     pauseImportLine,
     resumeImportLine,
     disconnectImportLine,
+
+    // ZIP MASTER CODE
+    connectZipMasterCode,
+    pauseZipMasterCode,
+    resumeZipMasterCode,
+    disconnectZipMasterCode,
 
     // export line
     connectExportLine,

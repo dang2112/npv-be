@@ -10,6 +10,7 @@ const deviceSchema = new Schema(
             type: String,
             enum: [
                 'SCANNER_IMPORT',        // scanner nhập kho (Cognex DataMan 290X)
+                'SCANNER_ZIP_MASTER_CODE',
                 'SCANNER_EXPORT_ENTRY',  // scanner đầu dây chuyền xuất kho
                 'SCANNER_EXPORT_EXIT',   // scanner cuối dây chuyền xuất kho
                 'PRINTER_DOMINO',        // máy in nhãn DOMINO

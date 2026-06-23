@@ -61,27 +61,129 @@ function connectSocket(socket) {
 
 
     // ── Trạng thái thiết bị (frontend gọi khi vào trang) ───────
+    // socket.on('device:getStatus', async () => {
+    //     try {
+    //         const status = await deviceService.getStatus()
+    //         const devices = status.filter(d => d.isEnable)
+    //         for (const device of devices) {
+    //             try {
+    //                 switch (device.deviceType) {
+    //                     case "SCANNER_IMPORT":
+    //                         await deviceManager.connectImportLine(device);
+    //                         // if (device.connected) {
+    //                         //     const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
+    //                         //     await goodsReceiptService.startScan(activeReceipt._id)
+    //                         // }
+    //                         break;
+    //                     case "SCANNER_ZIP_MASTER_CODE":
+    //                         await deviceManager.connectZipMasterCode(device);
+    //                         // if (device.connected) {
+    //                         //     const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
+    //                         //     await goodsReceiptService.startScan(activeReceipt._id)
+    //                         // }
+    //                         break;
+    //                 }
+
+    //             } catch (connErr) {
+    //                 logger.error(`Lỗi kết nối thiết bị ${device.deviceName}: ${connErr.message}`);
+    //             }
+    //         }
+
+    //         // 2. CHỈ GỌI STARTSCAN DUY NHẤT 1 LẦN NẾU ĐANG CÓ PHIÊN HOẠT ĐỘNG
+    //         const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
+    //         if (activeReceipt) {
+    //             // Kiểm tra xem các thiết bị cần thiết đã kết nối chưa
+    //             const isImportConnected = devices.find(d => d.deviceType === "SCANNER_IMPORT")?.connected;
+
+    //             if (isImportConnected) {
+    //                 logger.info(`[Socket] Tự động khôi phục phiên quét cho đơn: ${activeReceipt._id}`);
+    //                 await goodsReceiptService.startScan(activeReceipt._id);
+    //             }
+    //         }
+
+    //         socket.emit('device:status', status)
+    //     } catch (err) {
+    //         logger.error(`[Socket] device:getStatus lỗi: ${err.message}`)
+    //     }
+    // })
+
     socket.on('device:getStatus', async () => {
         try {
             const status = await deviceService.getStatus()
             const devices = status.filter(d => d.isEnable)
+
+            // 1. Thực hiện kết nối mạng TCP cho các thiết bị
             for (const device of devices) {
                 try {
                     switch (device.deviceType) {
                         case "SCANNER_IMPORT":
                             await deviceManager.connectImportLine(device);
-                            if (device.connected) {
-                                const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
-                                await goodsReceiptService.startScan(activeReceipt._id)
-                            }
+                            break;
+                        case "SCANNER_ZIP_MASTER_CODE":
+                            await deviceManager.connectZipMasterCode(device);
                             break;
                     }
-
                 } catch (connErr) {
                     logger.error(`Lỗi kết nối thiết bị ${device.deviceName}: ${connErr.message}`);
                 }
             }
-            socket.emit('device:status', status)
+
+            // 2. CHECK TRẠNG THÁI REALTIME TỪ DEVICEMANAGER ĐỂ KHÔI PHỤC PHIÊN QUÉT
+            const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
+            if (activeReceipt) {
+                // Lấy trực tiếp từ bộ quản lý kết nối thật của hệ thống
+                const isImportReady = deviceManager.importScanner.isConnected();
+
+                if (isImportReady) {
+                    logger.info(`[Socket] Tự động khôi phục phiên quét duy nhất cho đơn: ${activeReceipt._id}`);
+                    await goodsReceiptService.startScan(activeReceipt._id);
+                }
+            }
+
+            // Lấy lại status cập nhật mới nhất để trả về cho Frontend hiển thị màu xanh Online
+            const updatedStatus = await deviceService.getStatus()
+            socket.emit('device:status', updatedStatus)
+        } catch (err) {
+            logger.error(`[Socket] device:getStatus lỗi: ${err.message}`)
+        }
+    })
+
+    socket.on('scan:cartonCompleted', async () => {
+        try {
+            const status = await deviceService.getStatus()
+            const devices = status.filter(d => d.isEnable)
+
+            // 1. Thực hiện kết nối mạng TCP cho các thiết bị
+            for (const device of devices) {
+                try {
+                    switch (device.deviceType) {
+                        case "SCANNER_IMPORT":
+                            await deviceManager.connectImportLine(device);
+                            break;
+                        case "SCANNER_ZIP_MASTER_CODE":
+                            await deviceManager.connectZipMasterCode(device);
+                            break;
+                    }
+                } catch (connErr) {
+                    logger.error(`Lỗi kết nối thiết bị ${device.deviceName}: ${connErr.message}`);
+                }
+            }
+
+            // 2. CHECK TRẠNG THÁI REALTIME TỪ DEVICEMANAGER ĐỂ KHÔI PHỤC PHIÊN QUÉT
+            const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
+            if (activeReceipt) {
+                // Lấy trực tiếp từ bộ quản lý kết nối thật của hệ thống
+                const isImportReady = deviceManager.importScanner.isConnected();
+
+                if (isImportReady) {
+                    logger.info(`[Socket] Tự động khôi phục phiên quét duy nhất cho đơn: ${activeReceipt._id}`);
+                    await goodsReceiptService.startScan(activeReceipt._id);
+                }
+            }
+
+            // Lấy lại status cập nhật mới nhất để trả về cho Frontend hiển thị màu xanh Online
+            const updatedStatus = await deviceService.getStatus()
+            socket.emit('scan:cartonCompleted', updatedStatus)
         } catch (err) {
             logger.error(`[Socket] device:getStatus lỗi: ${err.message}`)
         }
