@@ -2,11 +2,12 @@ const RoleModel = require('../model/role')
 const { BadReq } = require('../util/response/requestError')
 const { errorCode } = require('../util/response/errorCode')
 const PermissionModel = require('../model/permission')
+const { buildSearchRegex } = require('../util/regex')
 
 const roleService = {
     getAll: async (search = '', page = 1, limit = 10) => {
         try {
-            search = RegExp(search, 'i')
+            search = buildSearchRegex(search)
             page = Number(page)
             limit = Number(limit)
             const [items, totalItems] = await Promise.all([

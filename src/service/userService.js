@@ -3,11 +3,12 @@ const UserModel = require('../model/user')
 const { BadReq } = require('../util/response/requestError')
 const { errorCode } = require('../util/response/errorCode')
 const { constant } = require('../util/constant')
+const { buildSearchRegex } = require('../util/regex')
 
 const userService = {
     getAll: async (search = '', page = 1, limit = 10) => {
         try {
-            search = RegExp(search, 'i')
+            search = buildSearchRegex(search)
             page = Number(page)
             limit = Number(limit)
 

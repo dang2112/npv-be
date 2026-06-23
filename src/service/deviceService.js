@@ -2,6 +2,7 @@ const { BadReq } = require('../util/response/requestError')
 const { errorCode } = require('../util/response/errorCode')
 const DeviceModel = require('../model/device')
 const deviceManager = require('../device/deviceManager')
+const { buildSearchRegex } = require('../util/regex')
 
 // Map deviceType → trạng thái connected tương ứng trong deviceManager.getStatus()
 const TYPE_CONNECTED_MAP = (runtime) => ({
@@ -14,7 +15,7 @@ const TYPE_CONNECTED_MAP = (runtime) => ({
 const deviceService = {
     getAll: async (search = '', page = 1, limit = 10) => {
         try {
-            search = RegExp(search, 'i')
+            search = buildSearchRegex(search)
             page = Number(page)
             limit = Number(limit)
             const deviceType = process.env.ROLE || "ROLE_IMPORT"

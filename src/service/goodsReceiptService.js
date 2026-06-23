@@ -5,6 +5,8 @@ const GoodsReceiptDetailModel = require('../model/goodsReceiptDetail')
 const integrationService = require('../util/integration/integrationService')
 const deviceManager = require('../device/deviceManager')
 const logger = require('../config/loggerConfig')
+const { buildSearchRegex } = require('../util/regex')
+
 
 const goodsReceiptService = {
     /**
@@ -19,7 +21,7 @@ const goodsReceiptService = {
 
     getAll: async (search = '', page = 1, limit = 10) => {
         try {
-            search = RegExp(search, 'i')
+            search = buildSearchRegex(search)
             page = Number(page)
             limit = Number(limit)
 
