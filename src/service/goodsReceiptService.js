@@ -7,6 +7,18 @@ const deviceManager = require('../device/deviceManager')
 const logger = require('../config/loggerConfig')
 const { buildSearchRegex } = require('../util/regex')
 
+const normalizeBatchlot = (batchlot) => String(batchlot ?? '').trim()
+
+const isBatchlotNotFoundError = (error) => {
+    const responseData = error.response?.data
+    return (
+        error.response?.status === 404 &&
+        (
+            responseData?.errorCode === 'BATCHLOT_QR_NOT_FOUND' ||
+            responseData?.errorAt === 'SyncBatchlot'
+        )
+    )
+}
 
 const goodsReceiptService = {
     /**
@@ -56,7 +68,7 @@ const goodsReceiptService = {
 
             const itemFilter = { ...baseFilter }
             if (search) {
-                const searchRegex = RegExp(search, 'i')
+                const searchRegex = buildSearchRegex(search)
                 itemFilter.$or = [{ productCode: searchRegex }, { productName: searchRegex }]
             }
             if (status === 'PENDING') itemFilter.scanStatus = 'PENDING'
@@ -145,11 +157,12 @@ const goodsReceiptService = {
      */
     getBatchlotInfo: async (batchlot) => {
         try {
+            batchlot = normalizeBatchlot(batchlot)
             const batchlotInfo = await integrationService.syncBatchlot(batchlot, undefined, 'GOODS_RECEIPT')
                 .catch((axiosError) => {
                     const httpStatus = axiosError.response?.status || axiosError.status
                     if (httpStatus === 401) throw new BadReq(errorCode.AUTHENTICATION_FAILED)
-                    if (httpStatus === 404) throw new BadReq(errorCode.BATCHLOT_NOT_FOUND)
+                    if (isBatchlotNotFoundError(axiosError)) throw new BadReq(errorCode.BATCHLOT_NOT_FOUND)
                     throw new BadReq(errorCode.INTERNAL_SERVER_ERROR)
                 })
 

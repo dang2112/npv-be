@@ -1,6 +1,8 @@
 const IntegrationHistoryModel = require('../../model/integrationHistory')
 const integrationClient = require('./integrationClient')
 
+const normalizeBatchlot = (batchlot) => String(batchlot ?? '').trim()
+
 const integrationService = {
     /**
      * Đồng bộ Batch Lot từ QAA.
@@ -10,7 +12,8 @@ const integrationService = {
      */
     syncBatchlot: async (manufactureBatchlot, createdAt, module) => {
         const startTime = Date.now()
-        const endpoint = 'v1/dmc/batchlot/sync'
+        const endpoint = '/v1/dmc/batchlot/sync'
+        manufactureBatchlot = normalizeBatchlot(manufactureBatchlot)
 
         const payload = { manufactureBatchlot, ...(createdAt && { createdAt }) }
         try {
