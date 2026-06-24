@@ -86,6 +86,15 @@ const goodsReceiptController = {
             next(error)
         }
     },
+    deleteConfig: async (req, res, next) => {
+        try {
+            const { goodsReceiptConfigId } = req.params
+            const result = await goodsReceiptService.deleteConfig(goodsReceiptConfigId)
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
 }
 
 module.exports = goodsReceiptController

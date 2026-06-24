@@ -617,6 +617,17 @@ const goodsReceiptService = {
             throw error
         }
     },
+
+    //delete 1 pack list configuration
+    deleteConfig: async (goodsReceiptConfigId) => {
+        try {
+            const receiptConfig = await GoodsReceiptConfigModel.deleteOne({_id: goodsReceiptConfigId})
+            if (!receiptConfig) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
+            return receiptConfig
+        } catch (error) {
+            throw error
+        }
+    },
 }
 
 module.exports = goodsReceiptService
