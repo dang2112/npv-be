@@ -3,16 +3,16 @@ const GoodsReceiptConfigModel = require('../model/goodsReceiptConfig')
 
 const GOODS_RECEIPT_CONFIGS = [
     {
-        name: 'quantityPerCarton',
+        name: 'low',
+        value: '4',
+    },
+    {
+        name: 'mid',
+        value: '8',
+    },
+    {
+        name: 'high',
         value: '12',
-    },
-    {
-        name: 'scanMode',
-        value: 'AUTO',
-    },
-    {
-        name: 'requireMasterCode',
-        value: 'true',
     },
 ]
 

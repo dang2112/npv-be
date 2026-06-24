@@ -602,7 +602,22 @@ const goodsReceiptService = {
         } catch (error) {
             throw error
         }
-    }
+    },
+
+    //update 1 pack list configuration
+    updateConfig: async (goodsReceiptConfigId, updateData) => {
+        try {
+            const receiptConfig = await GoodsReceiptConfigModel.findByIdAndUpdate(goodsReceiptConfigId, { $set: updateData }, {
+                new: true,
+                runValidators: true,
+                upsert: true,
+            })
+            if (!receiptConfig) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND) //upsert might cause this to not trigger?
+            return receiptConfig
+        } catch (error) {
+            throw error
+        }
+    },
 }
 
 module.exports = goodsReceiptService
