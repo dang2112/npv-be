@@ -610,9 +610,8 @@ const goodsReceiptService = {
             const receiptConfig = await GoodsReceiptConfigModel.findByIdAndUpdate(goodsReceiptConfigId, { $set: updateData }, {
                 new: true,
                 runValidators: true,
-                upsert: true,
             })
-            if (!receiptConfig) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND) //upsert might cause this to not trigger?
+            if (!receiptConfig) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
             return receiptConfig
         } catch (error) {
             throw error
