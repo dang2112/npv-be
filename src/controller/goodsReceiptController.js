@@ -95,6 +95,14 @@ const goodsReceiptController = {
             next(error)
         }
     },
+    createConfig: async (req, res, next) => {
+        try {
+            const result = await goodsReceiptService.createConfig(req.body)
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
 }
 
 module.exports = goodsReceiptController

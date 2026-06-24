@@ -7,6 +7,7 @@ router.get('/getAll', goodsReceiptController.getAll)
 
 //config apis
 router.get('/getAllConfigs', goodsReceiptController.getAllConfigs)
+router.post('/createConfig', goodsReceiptController.createConfig)
 
 //parameterized apis
 router.get('/getById/:goodsReceiptId', goodsReceiptController.getById)

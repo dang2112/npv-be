@@ -628,6 +628,19 @@ const goodsReceiptService = {
             throw error
         }
     },
+
+    createConfig: async (updateData) => {
+        try {
+            const receiptConfig = await GoodsReceiptConfigModel.create({
+                name: updateData.name,
+                value: updateData.value
+            })
+            if (!receiptConfig) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
+            return receiptConfig
+        } catch (error) {
+            throw error
+        }
+    },
 }
 
 module.exports = goodsReceiptService
