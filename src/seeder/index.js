@@ -8,6 +8,7 @@ const roleSeeder = require('./role')
 const userSeeder = require('./user')
 const deviceSeeder = require('./device')
 const goodsReceiptSeeder = require('./goodsReceipt')
+const goodsReceiptConfigSeeder = require('./goodsReceiptConfig')
 
 const args = process.argv.slice(2)
 
@@ -46,6 +47,10 @@ async function run() {
                 await goodsReceiptSeeder(args[1])
                 break
             }
+            case 'goodsReceiptConfig': {
+                await goodsReceiptConfigSeeder()
+                break
+            }
             case 'all': {
                 await userSeeder()
                 await roleSeeder()
@@ -53,6 +58,7 @@ async function run() {
                 await apiSeeder()
                 await integrationConfigSeeder()
                 await deviceSeeder()
+                await goodsReceiptConfigSeeder()
                 break
             }
         }

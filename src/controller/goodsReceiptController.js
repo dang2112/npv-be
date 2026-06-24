@@ -68,6 +68,15 @@ const goodsReceiptController = {
             next(error)
         }
     },
+    getAllConfigs: async (req, res, next) => {
+        try {
+            const { search = '', page = 1, limit = 10 } = req.query
+            const result = await goodsReceiptService.getAllConfigs(search, Number(page), Number(limit))
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
 }
 
 module.exports = goodsReceiptController

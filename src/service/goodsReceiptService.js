@@ -2,6 +2,7 @@ const { BadReq } = require('../util/response/requestError')
 const { errorCode } = require('../util/response/errorCode')
 const GoodsReceiptModel = require('../model/goodsReceipt')
 const GoodsReceiptDetailModel = require('../model/goodsReceiptDetail')
+const GoodsReceiptConfigModel = require('../model/goodsReceiptConfig')
 const integrationService = require('../util/integration/integrationService')
 const deviceManager = require('../device/deviceManager')
 const logger = require('../config/loggerConfig')
@@ -577,6 +578,27 @@ const goodsReceiptService = {
             })
             if (!receipt) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
             return receipt
+        } catch (error) {
+            throw error
+        }
+    },
+
+    //get all pack list configurations
+    getAllConfigs: async (search = '', page = 1, limit = 10) => {
+        try {
+            search = buildSearchRegex(search)
+            page = Number(page)
+            limit = Number(limit)
+
+            const [items, totalItems] = await Promise.all([
+                GoodsReceiptConfigModel.find({ name: search }, { __v: 0 })
+                    .sort({ createdAt: -1 })
+                    .skip((page - 1) * limit)
+                    .limit(limit),
+                GoodsReceiptConfigModel.countDocuments({ name: search }),
+            ])
+
+            return { items, page, totalItems, totalPage: Math.ceil(totalItems / limit) }
         } catch (error) {
             throw error
         }
