@@ -68,6 +68,41 @@ const goodsReceiptController = {
             next(error)
         }
     },
+    getAllConfigs: async (req, res, next) => {
+        try {
+            const { search = '', page = 1, limit = 10 } = req.query
+            const result = await goodsReceiptService.getAllConfigs(search, Number(page), Number(limit))
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
+    updateConfig: async (req, res, next) => {
+        try {
+            const { goodsReceiptConfigId } = req.params
+            const result = await goodsReceiptService.updateConfig(goodsReceiptConfigId, req.body)
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
+    deleteConfig: async (req, res, next) => {
+        try {
+            const { goodsReceiptConfigId } = req.params
+            const result = await goodsReceiptService.deleteConfig(goodsReceiptConfigId)
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
+    createConfig: async (req, res, next) => {
+        try {
+            const result = await goodsReceiptService.createConfig(req.body)
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
 }
 
 module.exports = goodsReceiptController

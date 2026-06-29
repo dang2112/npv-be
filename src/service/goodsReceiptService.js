@@ -2,9 +2,24 @@ const { BadReq } = require('../util/response/requestError')
 const { errorCode } = require('../util/response/errorCode')
 const GoodsReceiptModel = require('../model/goodsReceipt')
 const GoodsReceiptDetailModel = require('../model/goodsReceiptDetail')
+const GoodsReceiptConfigModel = require('../model/goodsReceiptConfig')
 const integrationService = require('../util/integration/integrationService')
 const deviceManager = require('../device/deviceManager')
 const logger = require('../config/loggerConfig')
+const { buildSearchRegex } = require('../util/regex')
+
+const normalizeBatchlot = (batchlot) => String(batchlot ?? '').trim()
+
+const isBatchlotNotFoundError = (error) => {
+    const responseData = error.response?.data
+    return (
+        error.response?.status === 404 &&
+        (
+            responseData?.errorCode === 'BATCHLOT_QR_NOT_FOUND' ||
+            responseData?.errorAt === 'SyncBatchlot'
+        )
+    )
+}
 
 const goodsReceiptService = {
     /**
@@ -19,7 +34,7 @@ const goodsReceiptService = {
 
     getAll: async (search = '', page = 1, limit = 10) => {
         try {
-            search = RegExp(search, 'i')
+            search = buildSearchRegex(search)
             page = Number(page)
             limit = Number(limit)
 
@@ -54,7 +69,7 @@ const goodsReceiptService = {
 
             const itemFilter = { ...baseFilter }
             if (search) {
-                const searchRegex = RegExp(search, 'i')
+                const searchRegex = buildSearchRegex(search)
                 itemFilter.$or = [{ productCode: searchRegex }, { productName: searchRegex }]
             }
             if (status === 'PENDING') itemFilter.scanStatus = 'PENDING'
@@ -143,11 +158,12 @@ const goodsReceiptService = {
      */
     getBatchlotInfo: async (batchlot) => {
         try {
+            batchlot = normalizeBatchlot(batchlot)
             const batchlotInfo = await integrationService.syncBatchlot(batchlot, undefined, 'GOODS_RECEIPT')
                 .catch((axiosError) => {
                     const httpStatus = axiosError.response?.status || axiosError.status
                     if (httpStatus === 401) throw new BadReq(errorCode.AUTHENTICATION_FAILED)
-                    if (httpStatus === 404) throw new BadReq(errorCode.BATCHLOT_NOT_FOUND)
+                    if (isBatchlotNotFoundError(axiosError)) throw new BadReq(errorCode.BATCHLOT_NOT_FOUND)
                     throw new BadReq(errorCode.INTERNAL_SERVER_ERROR)
                 })
 
@@ -565,7 +581,66 @@ const goodsReceiptService = {
         } catch (error) {
             throw error
         }
-    }
+    },
+
+    //get all pack list configurations
+    getAllConfigs: async (search = '', page = 1, limit = 10) => {
+        try {
+            search = buildSearchRegex(search)
+            page = Number(page)
+            limit = Number(limit)
+
+            const [items, totalItems] = await Promise.all([
+                GoodsReceiptConfigModel.find({ name: search }, { __v: 0 })
+                    .sort({ createdAt: -1 })
+                    .skip((page - 1) * limit)
+                    .limit(limit),
+                GoodsReceiptConfigModel.countDocuments({ name: search }),
+            ])
+
+            return { items, page, totalItems, totalPage: Math.ceil(totalItems / limit) }
+        } catch (error) {
+            throw error
+        }
+    },
+
+    //update 1 pack list configuration
+    updateConfig: async (goodsReceiptConfigId, updateData) => {
+        try {
+            const receiptConfig = await GoodsReceiptConfigModel.findByIdAndUpdate(goodsReceiptConfigId, { $set: updateData }, {
+                new: true,
+                runValidators: true,
+            })
+            if (!receiptConfig) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
+            return receiptConfig
+        } catch (error) {
+            throw error
+        }
+    },
+
+    //delete 1 pack list configuration
+    deleteConfig: async (goodsReceiptConfigId) => {
+        try {
+            const receiptConfig = await GoodsReceiptConfigModel.deleteOne({_id: goodsReceiptConfigId})
+            if (!receiptConfig) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
+            return receiptConfig
+        } catch (error) {
+            throw error
+        }
+    },
+
+    createConfig: async (updateData) => {
+        try {
+            const receiptConfig = await GoodsReceiptConfigModel.create({
+                name: updateData.name,
+                value: updateData.value
+            })
+            if (!receiptConfig) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
+            return receiptConfig
+        } catch (error) {
+            throw error
+        }
+    },
 }
 
 module.exports = goodsReceiptService

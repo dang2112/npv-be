@@ -10,9 +10,12 @@ const client = axios.create({
     },
 })
 
+const normalizeBatchlot = (batchlot) => String(batchlot ?? '').trim()
+
 const integrationClient = {
     // POST /v1/dmc/batchlot/sync
     syncBatchlot: async (manufactureBatchlot, createdAt) => {
+        manufactureBatchlot = normalizeBatchlot(manufactureBatchlot)
         const body = { manufactureBatchlot }
         if (createdAt) body.createdAt = createdAt
         return await client.post('/v1/dmc/batchlot/sync', body)

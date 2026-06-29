@@ -8,7 +8,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "format": "prettier --write \"{src,test}/**/*.{js,ts}\"",
-    "seed": "node src/seeder/index.js"
+    "seed": "node src/seeder/index.js",
+    "seed:goodsReceipt": "node src/seeder/index.js goodsReceipt",
+    "seed:goodsReceiptConfig": "node src/seeder/index.js goodsReceiptConfig"
   },
   "repository": {
     "type": "git",
