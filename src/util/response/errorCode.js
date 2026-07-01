@@ -51,6 +51,10 @@ const errorCode = {
         code: 14,
         message: 'Invalid request!',
     },
+    PACKLISTCONFIG_OUTSIDE_RANGE: {
+        code: 15,
+        message: 'Value of a pack list must be within the range of 0 to 1000!',
+    },
     AUTHENTICATION_FAILED: {
         code: 401,
         message: 'Authentication failed!',

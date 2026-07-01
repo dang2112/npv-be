@@ -607,6 +607,7 @@ const goodsReceiptService = {
     //update 1 pack list configuration
     updateConfig: async (goodsReceiptConfigId, updateData) => {
         try {
+            if (updateData.value < 0 || updateData.value > 1000) throw new BadReq(errorCode.PACKLISTCONFIG_OUTSIDE_RANGE)
             const receiptConfig = await GoodsReceiptConfigModel.findByIdAndUpdate(goodsReceiptConfigId, { $set: updateData }, {
                 new: true,
                 runValidators: true,
@@ -631,6 +632,7 @@ const goodsReceiptService = {
 
     createConfig: async (updateData) => {
         try {
+            if (updateData.value < 0 || updateData.value > 1000) throw new BadReq(errorCode.PACKLISTCONFIG_OUTSIDE_RANGE)
             const receiptConfig = await GoodsReceiptConfigModel.create({
                 name: updateData.name,
                 value: updateData.value
