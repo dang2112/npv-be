@@ -30,7 +30,12 @@ const integrationClient = {
         }),
 
     // POST /v1/dmc/daily-confirmation
-    sendDailyConfirmation: async (manufactureBatchlot, date, totalActivated, totalScanned) =>
+    sendDailyConfirmation: async (
+        manufactureBatchlot,
+        date,
+        totalActivated,
+        totalScanned,
+    ) =>
         await client.post('/v1/dmc/daily-confirmation', {
             manufactureBatchlot,
             date,

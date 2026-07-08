@@ -13,19 +13,19 @@ const goodsIssueDetailSchema = new Schema(
             type: String,
         },
         lotNumber: {
-            type: String,   // Lô SX (Batch NO từ DO)
+            type: String, // Lô SX (Batch NO từ DO)
         },
         qty: {
-            type: Number,   // Số lượng theo DO
+            type: Number, // Số lượng theo DO
         },
         qrCode: {
-            type: String,   // QR của lon sơn
+            type: String, // QR của lon sơn
         },
         cartonQR: {
-            type: String,   // QR thùng carton chứa lon này
+            type: String, // QR thùng carton chứa lon này
         },
         printOrder: {
-            type: Number,   // Thứ tự in nhãn (người vận hành sắp xếp)
+            type: Number, // Thứ tự in nhãn (người vận hành sắp xếp)
         },
         // 1: chưa kích hoạt, 2: đã kích hoạt
         qrStatus: {

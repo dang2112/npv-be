@@ -5,7 +5,11 @@ const deviceController = {
     getAll: async (req, res, next) => {
         try {
             const { search = '', page = 1, limit = 10 } = req.query
-            const result = await deviceService.getAll(search, Number(page), Number(limit))
+            const result = await deviceService.getAll(
+                search,
+                Number(page),
+                Number(limit),
+            )
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)

@@ -1,10 +1,17 @@
 require('dotenv').config()
 
 if (process.env.NODE_ENV === 'production') {
-    const required = ['JWT_ACCESS_TOKEN_PRIVATE_KEY', 'DB_PASSWORD', 'REDIS_PASSWORD', 'QAAS_API_KEY']
+    const required = [
+        'JWT_ACCESS_TOKEN_PRIVATE_KEY',
+        'DB_PASSWORD',
+        'REDIS_PASSWORD',
+        'QAAS_API_KEY',
+    ]
     const missing = required.filter((k) => !process.env[k])
     if (missing.length > 0) {
-        throw new Error(`[Config] Thiếu biến môi trường bắt buộc trong production: ${missing.join(', ')}`)
+        throw new Error(
+            `[Config] Thiếu biến môi trường bắt buộc trong production: ${missing.join(', ')}`,
+        )
     }
 }
 
@@ -28,8 +35,7 @@ const envConfig = {
     REDIS_USERNAME: process.env.REDIS_USERNAME || 'default',
     REDIS_PASSWORD: process.env.REDIS_PASSWORD || 'siginx123',
 
-    QAAS_API_URL:
-        process.env.QAAS_API_URL || 'http://localhost:3099',
+    QAAS_API_URL: process.env.QAAS_API_URL || 'http://localhost:3099',
     QAAS_API_KEY: process.env.QAAS_API_KEY || 'mock-api-key-qaa',
 }
 

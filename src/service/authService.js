@@ -114,7 +114,7 @@ const authService = {
                 })
                 user.permissionCodeList = [...permissionCodeList]
             }
-            const role = process.env.ROLE || "ROLE_IMPORT"
+            const role = process.env.ROLE || 'ROLE_IMPORT'
             user.role = role
             return user
         } catch (error) {

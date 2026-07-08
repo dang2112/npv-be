@@ -79,10 +79,16 @@ async function connectExportLine(onEntryData, onExitData) {
         domino.connect(),
     ])
 
-    const labels = ['Scanner đầu chuyền', 'Scanner cuối chuyền', 'Máy in DOMINO']
+    const labels = [
+        'Scanner đầu chuyền',
+        'Scanner cuối chuyền',
+        'Máy in DOMINO',
+    ]
     results.forEach((r, i) => {
         if (r.status === 'rejected') {
-            logger.error(`[DeviceManager] ${labels[i]} lỗi: ${r.reason?.message}`)
+            logger.error(
+                `[DeviceManager] ${labels[i]} lỗi: ${r.reason?.message}`,
+            )
         }
     })
 
@@ -121,12 +127,24 @@ async function disconnectExportLine() {
 function getStatus() {
     return {
         importLine: {
-            scanner: { role: 'SCANNER_IMPORT', connected: importScanner.isConnected() },
-            scannerZipMasterCode: { role: 'SCANNER_ZIP_MASTER_CODE', connected: importScanner.isConnected() },
+            scanner: {
+                role: 'SCANNER_IMPORT',
+                connected: importScanner.isConnected(),
+            },
+            scannerZipMasterCode: {
+                role: 'SCANNER_ZIP_MASTER_CODE',
+                connected: zipMasterCodeScanner.isConnected(),
+            },
         },
         exportLine: {
-            entryScanner: { role: 'SCANNER_EXPORT_ENTRY', connected: exportEntryScanner.isConnected() },
-            exitScanner: { role: 'SCANNER_EXPORT_EXIT', connected: exportExitScanner.isConnected() },
+            entryScanner: {
+                role: 'SCANNER_EXPORT_ENTRY',
+                connected: exportEntryScanner.isConnected(),
+            },
+            exitScanner: {
+                role: 'SCANNER_EXPORT_EXIT',
+                connected: exportExitScanner.isConnected(),
+            },
             printer: { role: 'PRINTER_DOMINO', ...domino.getStatus() },
         },
     }

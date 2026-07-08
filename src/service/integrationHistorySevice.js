@@ -8,11 +8,13 @@ const integrationHistoryService = {
             page = Number(page)
             limit = Number(limit)
 
-            const { status, referenceCode, startDate, endDate, module } = filters
+            const { status, referenceCode, startDate, endDate, module } =
+                filters
 
             const query = {}
             if (status) query.status = status
-            if (referenceCode) query.referenceCode = { $regex: referenceCode, $options: 'i' }
+            if (referenceCode)
+                query.referenceCode = { $regex: referenceCode, $options: 'i' }
             if (module) query.module = module
             if (startDate || endDate) {
                 query.createdAt = {}
@@ -57,7 +59,9 @@ const integrationHistoryService = {
             if (!Array.isArray(ids) || ids.length === 0) {
                 throw new BadReq(errorCode.INVALID_REQUEST)
             }
-            const result = await IntegrationHistoryModel.deleteMany({ _id: { $in: ids } })
+            const result = await IntegrationHistoryModel.deleteMany({
+                _id: { $in: ids },
+            })
             return { deletedCount: result.deletedCount }
         } catch (error) {
             throw error

@@ -4,6 +4,7 @@ const goodsReceiptService = require('../service/goodsReceiptService')
 const deviceService = require('../service/deviceService')
 const deviceManager = require('../device/deviceManager')
 const GoodsReceiptModel = require('../model/goodsReceipt')
+const GoodsReceiptDetailModel = require('../model/goodsReceiptDetail')
 
 function isValidObjectId(id) {
     return Types.ObjectId.isValid(id)
@@ -30,7 +31,7 @@ function isValidObjectId(id) {
  *   device:status          { importLine, exportLine }  ← phản hồi device:getStatus
  */
 
-let isStart = true;
+let isStart = true
 function connectSocket(socket) {
     logger.info(`[Socket] Client kết nối: ${socket.id}`)
 
@@ -58,7 +59,6 @@ function connectSocket(socket) {
     //         }
     //     })(); // <--- () này để thực thi hàm ngay lập tức
     // }
-
 
     // ── Trạng thái thiết bị (frontend gọi khi vào trang) ───────
     // socket.on('device:getStatus', async () => {
@@ -110,89 +110,105 @@ function connectSocket(socket) {
     socket.on('device:getStatus', async () => {
         try {
             const status = await deviceService.getStatus()
-            const devices = status.filter(d => d.isEnable)
+            const devices = status.filter((d) => d.isEnable)
 
             // 1. Thực hiện kết nối mạng TCP cho các thiết bị
             for (const device of devices) {
                 try {
                     switch (device.deviceType) {
-                        case "SCANNER_IMPORT":
-                            await deviceManager.connectImportLine(device);
-                            break;
+                        case 'SCANNER_IMPORT':
+                            await deviceManager.connectImportLine(device)
+                            break
                         case "SCANNER_ZIP_MASTER_CODE":
                             await deviceManager.connectZipMasterCode(device);
                             break;
                     }
                 } catch (connErr) {
-                    logger.error(`Lỗi kết nối thiết bị ${device.deviceName}: ${connErr.message}`);
+                    logger.error(
+                        `Lỗi kết nối thiết bị ${device.deviceName}: ${connErr.message}`,
+                    )
                 }
             }
 
             // 2. CHECK TRẠNG THÁI REALTIME TỪ DEVICEMANAGER ĐỂ KHÔI PHỤC PHIÊN QUÉT
-            const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
+            const activeReceipt = await GoodsReceiptModel.findOne({
+                status: 'SCANNING',
+            }).lean()
             if (activeReceipt) {
                 // Lấy trực tiếp từ bộ quản lý kết nối thật của hệ thống
-                const isImportReady = deviceManager.importScanner.isConnected();
+                const isImportReady = deviceManager.importScanner.isConnected()
 
                 if (isImportReady) {
-                    logger.info(`[Socket] Tự động khôi phục phiên quét duy nhất cho đơn: ${activeReceipt._id}`);
-                    await goodsReceiptService.startScan(activeReceipt._id);
+                    logger.info(
+                        `[Socket] Tự động khôi phục phiên quét duy nhất cho đơn: ${activeReceipt._id}`,
+                    )
+                    await goodsReceiptService.startScan(activeReceipt._id)
                 }
             }
 
             // Lấy lại status cập nhật mới nhất để trả về cho Frontend hiển thị màu xanh Online
             const updatedStatus = await deviceService.getStatus()
+
             socket.emit('device:status', updatedStatus)
         } catch (err) {
             logger.error(`[Socket] device:getStatus lỗi: ${err.message}`)
         }
     })
 
-    socket.on('scan:cartonCompleted', async () => {
+    socket.on('scan:getCurrentCarton', async (data) => {
         try {
-            const status = await deviceService.getStatus()
-            const devices = status.filter(d => d.isEnable)
-
-            // 1. Thực hiện kết nối mạng TCP cho các thiết bị
-            for (const device of devices) {
-                try {
-                    switch (device.deviceType) {
-                        case "SCANNER_IMPORT":
-                            await deviceManager.connectImportLine(device);
-                            break;
-                        case "SCANNER_ZIP_MASTER_CODE":
-                            await deviceManager.connectZipMasterCode(device);
-                            break;
-                    }
-                } catch (connErr) {
-                    logger.error(`Lỗi kết nối thiết bị ${device.deviceName}: ${connErr.message}`);
-                }
+            const { goodsReceiptId } = data
+            if (!goodsReceiptId) {
+                return socket.emit('scan:error', {
+                    message: 'Thiếu Goods Receipt ID',
+                })
             }
 
-            // 2. CHECK TRẠNG THÁI REALTIME TỪ DEVICEMANAGER ĐỂ KHÔI PHỤC PHIÊN QUÉT
-            const activeReceipt = await GoodsReceiptModel.findOne({ status: "SCANNING" }).lean();
-            if (activeReceipt) {
-                // Lấy trực tiếp từ bộ quản lý kết nối thật của hệ thống
-                const isImportReady = deviceManager.importScanner.isConnected();
+            let currentList = []
+            let quantityScanned = 0
+            let quantityPerCarton = 0
 
-                if (isImportReady) {
-                    logger.info(`[Socket] Tự động khôi phục phiên quét duy nhất cho đơn: ${activeReceipt._id}`);
-                    await goodsReceiptService.startScan(activeReceipt._id);
-                }
+            const receipt = await GoodsReceiptModel.findById(goodsReceiptId)
+            if (!receipt) {
+                return socket.emit('scan:error', {
+                    message: 'Không tìm thấy đơn hàng trong hệ thống',
+                })
             }
+            quantityPerCarton = receipt.quantityPerCarton || 0
 
-            // Lấy lại status cập nhật mới nhất để trả về cho Frontend hiển thị màu xanh Online
-            const updatedStatus = await deviceService.getStatus()
-            socket.emit('scan:cartonCompleted', updatedStatus)
+            const activeDetails = await GoodsReceiptDetailModel.find({
+                _id: { $in: receipt.goodsReceiptDetails },
+                scanStatus: 'SCANNED',
+                activationStatus: 'ACTIVATED',
+                zipMasterCode: null,
+            }).select('qrCode')
+
+            quantityScanned = activeDetails.length
+            currentList = activeDetails.map((d) => ({
+                qrCode: d.qrCode,
+                status: 'success',
+            }))
+            // console.log(currentList)
+            socket.emit('scan:cartonCompleted', {
+                isCompletedToPack: quantityScanned >= quantityPerCarton,
+                listScanned: currentList,
+                // message: 'Khôi phục danh sách sản phẩm hiện tại thành công!'
+            })
         } catch (err) {
-            logger.error(`[Socket] device:getStatus lỗi: ${err.message}`)
+            logger.error(
+                `[Socket] Lỗi xử lý khôi phục dữ liệu khi F5: ${err.message}`,
+            )
+            socket.emit('scan:error', {
+                message: 'Lỗi hệ thống khi khôi phục dữ liệu thùng',
+            })
         }
     })
 
     // ── Bắt đầu quét ───────────────────────────────────────────
     socket.on('receipt:startScan', async ({ goodsReceiptId } = {}) => {
         try {
-            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId)) throw new Error('goodsReceiptId không hợp lệ')
+            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId))
+                throw new Error('goodsReceiptId không hợp lệ')
             // await goodsReceiptService.startScan(goodsReceiptId)
             // socket.emit('receipt:ack', {
             //     event: 'receipt:startScan',
@@ -208,7 +224,9 @@ function connectSocket(socket) {
 
             //Check trạng thái thiết bị trước khi bắt đầu quét
             const deviceStatus = await deviceService.getStatus()
-            const deviceScanerImport = deviceStatus.find(d => d.deviceType === 'SCANNER_IMPORT')
+            const deviceScanerImport = deviceStatus.find(
+                (d) => d.deviceType === 'SCANNER_IMPORT',
+            )
 
             if (deviceScanerImport && deviceScanerImport.connected) {
                 await goodsReceiptService.startScan(goodsReceiptId)
@@ -240,8 +258,11 @@ function connectSocket(socket) {
     // ── Tạm dừng quét ──────────────────────────────────────────
     socket.on('receipt:pauseScan', async ({ goodsReceiptId } = {}) => {
         try {
-            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId)) throw new Error('goodsReceiptId không hợp lệ')
-            await goodsReceiptService.pauseScan(goodsReceiptId)
+            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId))
+                throw new Error('goodsReceiptId không hợp lệ')
+            console.log(goodsReceiptId)
+            const res = await goodsReceiptService.pauseScan(goodsReceiptId)
+            console.log(res)
             socket.emit('receipt:ack', {
                 event: 'receipt:pauseScan',
                 goodsReceiptId,
@@ -259,12 +280,71 @@ function connectSocket(socket) {
         }
     })
 
+    socket.on('scanner:send', async ({ role, qrCode } = {}) => {
+        try {
+            console.log(qrCode)
+            if (!qrCode || !String(qrCode).trim()) {
+                throw new Error('qrCode không hợp lệ')
+            }
+
+            const activeReceipt = await GoodsReceiptModel.findOne({
+                status: 'SCANNING',
+            })
+                .populate('goodsReceiptDetails')
+                .lean()
+            if (!activeReceipt) {
+                socket.emit('receipt:ack', {
+                    event: 'scanner:send',
+                    success: false,
+                    message: 'Không có đơn quét đang hoạt động',
+                })
+                return
+            }
+
+            const detailIds = activeReceipt.goodsReceiptDetails.map(
+                (d) => d._id,
+            )
+            const qrScanned = activeReceipt.goodsReceiptDetails.filter(
+                (d) =>
+                    d.scanStatus === 'SCANNED' &&
+                    d.activationStatus === 'ACTIVATED' &&
+                    d.zipMasterCode === null,
+            )
+            const configScanData = {
+                batchlot: activeReceipt.batchlot,
+                quantityPerCarton: activeReceipt.quantityPerCarton || 0,
+                quantityScanned: qrScanned.length,
+                item: qrScanned.map((d) => d.qrCode),
+                itemError: activeReceipt.goodsReceiptDetails
+                    .filter((d) => d.activationStatus === 'ERROR')
+                    .map((d) => d.qrCode),
+            }
+
+            await goodsReceiptService._handleScanData(
+                activeReceipt._id,
+                activeReceipt.batchlot,
+                qrCode,
+                detailIds,
+                configScanData,
+            )
+        } catch (err) {
+            logger.error(`[Socket] scanner:send lỗi: ${err.message}`)
+            socket.emit('receipt:ack', {
+                event: 'scanner:send',
+                success: false,
+                message: err.message,
+            })
+        }
+    })
+
     // ── Hoàn thành batchlot ─────────────────────────────────────
     socket.on('receipt:completeScan', async ({ goodsReceiptId } = {}) => {
         try {
-            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId)) throw new Error('goodsReceiptId không hợp lệ')
+            if (!goodsReceiptId || !isValidObjectId(goodsReceiptId))
+                throw new Error('goodsReceiptId không hợp lệ')
             await goodsReceiptService.completeScan(goodsReceiptId)
-            const summary = await goodsReceiptService.getCompletionSummary(goodsReceiptId)
+            const summary =
+                await goodsReceiptService.getCompletionSummary(goodsReceiptId)
             socket.emit('receipt:ack', {
                 event: 'receipt:completeScan',
                 goodsReceiptId,
@@ -272,9 +352,14 @@ function connectSocket(socket) {
                 message: 'Hoàn thành batchlot',
                 data: summary,
             })
-            deviceService.getStatus()
+            deviceService
+                .getStatus()
                 .then((s) => global._io?.emit('device:statusChanged', s))
-                .catch((err) => logger.error(`[Socket] Lấy device status lỗi: ${err.message}`))
+                .catch((err) =>
+                    logger.error(
+                        `[Socket] Lấy device status lỗi: ${err.message}`,
+                    ),
+                )
         } catch (err) {
             logger.error(`[Socket] receipt:completeScan lỗi: ${err.message}`)
             socket.emit('receipt:ack', {
