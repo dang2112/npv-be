@@ -21,6 +21,7 @@ const integrationService = {
                 manufactureBatchlot,
                 createdAt,
             )
+
             const duration = Date.now() - startTime
 
             IntegrationHistoryModel.create({

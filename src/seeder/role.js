@@ -36,6 +36,33 @@ async function roleSeeder() {
                 '6942498625084fa2dac94cc9',
                 // History
                 '69421dfb58565f5e1a66bb83',
+                // Import
+                '69421dfb58565f5e1a66bb86',
+                '69427e2b31f6bfad1de5b70b', // import-read
+                '69427e2b31f6bfad1de5b70d', // import-create
+                '69427e2b31f6bfad1de5b70e', // import-update
+                '69427e2b31f6bfad1de5b70f', // import-delete
+                // Export
+                '69421dfb58565f5e1a66bb87',
+                '69427e2b31f6bfad1de5b70c', // export-read
+            ],
+        },
+        {
+            _id: new Types.ObjectId('69421efb11023ff2bc3145ca'),
+            name: 'User',
+            description: '',
+            permissionIds: [
+                // Dashboard
+                '69421dfb58565f5e1a66bb7b',
+                // Import
+                '69421dfb58565f5e1a66bb86',
+                '69427e2b31f6bfad1de5b70b', // import-read
+                '69427e2b31f6bfad1de5b70d', // import-create
+                '69427e2b31f6bfad1de5b70e', // import-update
+                '69427e2b31f6bfad1de5b70f', // import-delete
+                // Export
+                '69421dfb58565f5e1a66bb87',
+                '69427e2b31f6bfad1de5b70c', // export-read
             ],
         },
     ])

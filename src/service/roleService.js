@@ -38,17 +38,17 @@ const roleService = {
     },
     create: async (role) => {
         try {
-            const { name, description, permisisonIds } = role
+            const { name, description, permissionIds, permisisonIds } = role
             const checkName = await RoleModel.findOne({ name })
             if (checkName) {
                 throw new BadReq(errorCode.ROLE_EXISTED)
             }
-            await RoleModel.create({
+            const data = await RoleModel.create({
                 name,
                 description,
-                permisisonIds,
+                permissionIds: permissionIds || permisisonIds,
             })
-            return checkName
+            return data
         } catch (error) {
             throw error
         }
@@ -69,6 +69,11 @@ const roleService = {
     },
     update: async (roleId, role) => {
         try {
+            const existingRole = await RoleModel.findById(roleId)
+            if (existingRole && existingRole.name === 'Admin') {
+                throw new BadReq(errorCode.ADMIN_ROLE_PROTECTED)
+            }
+
             const { name, description, permissionIds } = role
 
             const checkName = await RoleModel.findOne({
@@ -97,7 +102,14 @@ const roleService = {
     },
     delete: async (roleIds) => {
         try {
-            await RoleModel.findByIdAndDelete(roleIds)
+            const rolesToDelete = await RoleModel.find({
+                _id: { $in: roleIds },
+            })
+            if (rolesToDelete.some((r) => r.name === 'Admin')) {
+                throw new BadReq(errorCode.ADMIN_ROLE_PROTECTED)
+            }
+
+            await RoleModel.deleteMany({ _id: { $in: roleIds } })
             return null
         } catch (error) {
             throw error

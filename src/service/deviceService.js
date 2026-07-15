@@ -7,7 +7,7 @@ const { buildSearchRegex } = require('../util/regex')
 // Map deviceType → trạng thái connected tương ứng trong deviceManager.getStatus()
 const TYPE_CONNECTED_MAP = (runtime) => ({
     SCANNER_IMPORT: runtime.importLine.scanner.connected,
-    SCANNER_ZIP_MASTER_CODE: runtime.importLine.zipMasterCodeScanner.connected,
+    SCANNER_ZIP_MASTER_CODE: runtime.importLine.scannerZipMasterCode.connected,
     SCANNER_EXPORT_ENTRY: runtime.exportLine.entryScanner.connected,
     SCANNER_EXPORT_EXIT: runtime.exportLine.exitScanner.connected,
     PRINTER_DOMINO: runtime.exportLine.printer.connected,

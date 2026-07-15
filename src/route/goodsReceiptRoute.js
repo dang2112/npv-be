@@ -17,7 +17,7 @@ router.get(
     goodsReceiptController.getCompletionSummary,
 )
 // Điều khiển dây chuyền (start/pause/complete) → qua WebSocket: receipt:startScan, receipt:pauseScan, receipt:completeScan
-
+router.put('/unPack/:goodsReceiptId', goodsReceiptController.unPack)
 router.put(
     '/updateConfig/:goodsReceiptConfigId',
     goodsReceiptController.updateConfig,

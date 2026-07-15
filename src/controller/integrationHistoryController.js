@@ -7,6 +7,7 @@ const integrationHistoryController = {
             const {
                 status,
                 referenceCode,
+                search,
                 startDate,
                 endDate,
                 module,
@@ -14,7 +15,7 @@ const integrationHistoryController = {
                 limit = 10,
             } = req.query
             const result = await integrationHistoryService.getAll(
-                { status, referenceCode, startDate, endDate, module },
+                { status, referenceCode, search, startDate, endDate, module },
                 Number(page),
                 Number(limit),
             )

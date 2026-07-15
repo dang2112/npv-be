@@ -4,6 +4,7 @@ const { BadReq } = require('../util/response/requestError')
 const { errorCode } = require('../util/response/errorCode')
 const { constant } = require('../util/constant')
 const { buildSearchRegex } = require('../util/regex')
+const { validatePassword } = require('../util/validation')
 
 const userService = {
     getAll: async (search = '', page = 1, limit = 10) => {
@@ -50,7 +51,12 @@ const userService = {
     },
     create: async (user) => {
         try {
-            const { fullname, username, password, roleId } = user
+            const { fullname, username, password, confirmPassword, roleId } =
+                user
+
+            // Validate password matching and rules
+            validatePassword(password, confirmPassword)
+
             const checkUsername = await UserModel.findOne({ username })
             if (checkUsername) {
                 throw new BadReq(errorCode.USER_EXISTED)
@@ -88,7 +94,7 @@ const userService = {
     },
     update: async (userId, user) => {
         try {
-            const { fullname, username, role } = user
+            const { fullname, username, roleId, isLock, isLocked } = user
             const checkUsername = await UserModel.findOne({
                 username,
                 _id: { $ne: userId },
@@ -96,18 +102,33 @@ const userService = {
             if (checkUsername) {
                 throw new BadReq(errorCode.USER_EXISTED)
             }
+
+            const updateFields = {
+                fullname,
+                username,
+            }
+            if (roleId !== undefined) {
+                updateFields.roleId = roleId
+            }
+
+            // support both isLock and isLocked fields in update request
+            const finalLocked = isLocked !== undefined ? isLocked : isLock
+            if (finalLocked !== undefined) {
+                updateFields.isLocked = !!finalLocked
+                if (!finalLocked) {
+                    updateFields.failedLoginAttempts = 0
+                }
+            }
+
             const data = await UserModel.findByIdAndUpdate(
                 userId,
-                {
-                    fullname,
-                    username,
-                    role,
-                },
+                updateFields,
                 {
                     new: true,
                     projection: { password: 0, __v: 0 },
                 },
-            )
+            ).populate({ path: 'roleId', select: { _id: 1, name: 1 } })
+
             return data
         } catch (error) {
             throw error
@@ -121,18 +142,21 @@ const userService = {
             throw error
         }
     },
-    resetPassword: async (userId) => {
+    resetPassword: async (userId, data) => {
         try {
+            const { newPassword } = data
             const user = await UserModel.findById(userId)
 
             if (!user) {
                 throw new BadReq(errorCode.USER_NOT_FOUND)
             }
 
-            const hashPass = await bcrypt.hash(constant.DEFAULT_PASSWORD, 10)
+            const hashPass = await bcrypt.hash(newPassword, 10)
 
             await UserModel.findByIdAndUpdate(userId, {
                 password: hashPass,
+                failedLoginAttempts: 0,
+                isLocked: false,
             })
 
             return null

@@ -60,6 +60,19 @@ const goodsReceiptController = {
             next(error)
         }
     },
+    unPack: async (req, res, next) => {
+        try {
+            const { goodsReceiptId } = req.params
+            const { masterCode } = req.body || {}
+            const result = await goodsReceiptService.unPack(
+                goodsReceiptId,
+                masterCode,
+            )
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
     update: async (req, res, next) => {
         try {
             const { goodsReceiptId } = req.params

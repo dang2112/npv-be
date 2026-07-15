@@ -18,6 +18,8 @@ const integrationClient = {
         manufactureBatchlot = normalizeBatchlot(manufactureBatchlot)
         const body = { manufactureBatchlot }
         if (createdAt) body.createdAt = createdAt
+        // http://localhost:3099
+        console.log(body)
         return await client.post('/v1/dmc/batchlot/sync', body)
     },
 

@@ -119,9 +119,9 @@ function connectSocket(socket) {
                         case 'SCANNER_IMPORT':
                             await deviceManager.connectImportLine(device)
                             break
-                        case "SCANNER_ZIP_MASTER_CODE":
-                            await deviceManager.connectZipMasterCode(device);
-                            break;
+                        case 'SCANNER_ZIP_MASTER_CODE':
+                            await deviceManager.connectZipMasterCode(device)
+                            break
                     }
                 } catch (connErr) {
                     logger.error(
@@ -176,19 +176,38 @@ function connectSocket(socket) {
             }
             quantityPerCarton = receipt.quantityPerCarton || 0
 
+            //CHỈ LẤY RA QR CODE ĐÃ SCANNED VÀ ACTIVATED THÀNH CÔNG, CHƯA ZIP MASTER CODE
+
+            // const activeDetails = await GoodsReceiptDetailModel.find({
+            //     _id: { $in: receipt.goodsReceiptDetails },
+            //     scanStatus: 'SCANNED',
+            //     activationStatus: 'ACTIVATED',
+            //     zipMasterCode: null,
+            // }).select('qrCode')
+
+            // LẤY RA QR CODE ĐÃ SCANNED VÀ ACTIVATED THÀNH CÔNG VÀ CẢ LỖI
+
             const activeDetails = await GoodsReceiptDetailModel.find({
                 _id: { $in: receipt.goodsReceiptDetails },
                 scanStatus: 'SCANNED',
                 activationStatus: 'ACTIVATED',
+                // activationStatus: { $in: ['ACTIVATED', 'ERROR'] },
                 zipMasterCode: null,
-            }).select('qrCode')
+            }).select('qrCode activationStatus')
 
             quantityScanned = activeDetails.length
+            // currentList = activeDetails.map((d) => ({
+            //     qrCode: d.qrCode,
+            //     status:
+            //         d.activationStatus === 'ACTIVATED' ? 'success' : 'error',
+            // }))
+
             currentList = activeDetails.map((d) => ({
                 qrCode: d.qrCode,
-                status: 'success',
+                status:
+                    d.activationStatus === 'ACTIVATED' ? 'success' : 'error',
             }))
-            // console.log(currentList)
+
             socket.emit('scan:cartonCompleted', {
                 isCompletedToPack: quantityScanned >= quantityPerCarton,
                 listScanned: currentList,
@@ -207,6 +226,7 @@ function connectSocket(socket) {
     // ── Bắt đầu quét ───────────────────────────────────────────
     socket.on('receipt:startScan', async ({ goodsReceiptId } = {}) => {
         try {
+            console.log(goodsReceiptId)
             if (!goodsReceiptId || !isValidObjectId(goodsReceiptId))
                 throw new Error('goodsReceiptId không hợp lệ')
             // await goodsReceiptService.startScan(goodsReceiptId)
@@ -260,9 +280,7 @@ function connectSocket(socket) {
         try {
             if (!goodsReceiptId || !isValidObjectId(goodsReceiptId))
                 throw new Error('goodsReceiptId không hợp lệ')
-            console.log(goodsReceiptId)
             const res = await goodsReceiptService.pauseScan(goodsReceiptId)
-            console.log(res)
             socket.emit('receipt:ack', {
                 event: 'receipt:pauseScan',
                 goodsReceiptId,
@@ -282,7 +300,6 @@ function connectSocket(socket) {
 
     socket.on('scanner:send', async ({ role, qrCode } = {}) => {
         try {
-            console.log(qrCode)
             if (!qrCode || !String(qrCode).trim()) {
                 throw new Error('qrCode không hợp lệ')
             }

@@ -9,26 +9,48 @@ const { constant } = require('../util/constant')
 const RoleModel = require('../model/role')
 const ApiModel = require('../model/api')
 const PermissionModel = require('../model/permission')
+const { validatePassword } = require('../util/validation')
 
 const authService = {
     login: async (username, password) => {
         try {
-            const user = await UserModel.findOne({ username }).lean()
+            const user = await UserModel.findOne({ username })
             if (!user) {
                 throw new BadReq(errorCode.INCORRECT_USERNAME)
             }
+
+            if (user.isLocked) {
+                throw new BadReq(errorCode.ACCOUNT_LOCKED)
+            }
+
             const comparePassword = await bcrypt.compare(
                 password,
                 user.password,
             )
 
             if (!comparePassword) {
+                user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1
+                if (user.failedLoginAttempts >= 5) {
+                    user.isLocked = true
+                }
+                await user.save()
+
+                if (user.isLocked) {
+                    throw new BadReq(errorCode.ACCOUNT_LOCKED)
+                }
                 throw new BadReq(errorCode.INCORRECT_PASSWORD)
             }
-            delete user.password
+
+            if (user.failedLoginAttempts > 0) {
+                user.failedLoginAttempts = 0
+                await user.save()
+            }
+
+            const userObj = user.toObject()
+            delete userObj.password
             const ts = Date.now()
             const accessToken = jwt.sign(
-                { user: user, ts },
+                { user: userObj, ts },
                 envConfig.JWT_ACCESS_TOKEN_PRIVATE_KEY,
                 { expiresIn: Number(envConfig.JWT_ACCESS_TOKEN_EXPIRES) },
             )
@@ -121,12 +143,15 @@ const authService = {
             throw error
         }
     },
-    changePassword: async (currentUser, newPassword) => {
+    changePassword: async (currentUser, newPassword, confirmPassword) => {
         try {
             const user = await UserModel.findById(currentUser._id)
             if (!user) {
                 throw new BadReq(errorCode.USER_NOT_FOUND)
             }
+            // Validate new password rules and confirmation
+            validatePassword(newPassword, confirmPassword)
+
             const hashPass = await bcrypt.hash(newPassword, 10)
             await UserModel.findByIdAndUpdate(currentUser._id, {
                 password: hashPass,

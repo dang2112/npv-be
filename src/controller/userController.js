@@ -46,7 +46,7 @@ const userController = {
     resetPassword: async (req, res, next) => {
         try {
             const { userId } = req.params
-            const result = await userService.resetPassword(userId)
+            const result = await userService.resetPassword(userId, req.body)
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
