@@ -9,7 +9,7 @@ require('./config/redisConfig')
 
 const { envConfig } = require('./config/envConfig')
 const { limiter } = require('./middleware/rateLimit')
-const { authenticated } = require('./middleware/auth')
+const { authenticated, checkPermission } = require('./middleware/auth')
 const { corsMiddleware } = require('./middleware/cors')
 const { BadReq } = require('./util/response/requestError')
 const { response } = require('./util/response/response')
@@ -32,6 +32,7 @@ app.use(compression({ threshold: 100 * 1000 }))
 app.use(express.json())
 
 app.use(authenticated)
+// app.use(checkPermission)
 app.use(envConfig.BASE_URL, routes)
 
 app.use((req, res, next) => {

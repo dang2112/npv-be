@@ -17,7 +17,11 @@ const integrationService = {
 
         const payload = { manufactureBatchlot, ...(createdAt && { createdAt }) }
         try {
-            const response = await integrationClient.syncBatchlot(manufactureBatchlot, createdAt)
+            const response = await integrationClient.syncBatchlot(
+                manufactureBatchlot,
+                createdAt,
+            )
+
             const duration = Date.now() - startTime
 
             IntegrationHistoryModel.create({
@@ -67,7 +71,11 @@ const integrationService = {
         const endpoint = '/v1/dmc/qr-code/activation'
         const payload = { qrCode, activationStatus: 1, activatedAt }
         try {
-            const response = await integrationClient.activateQRcode(endpoint, qrCode, activatedAt)
+            const response = await integrationClient.activateQRcode(
+                endpoint,
+                qrCode,
+                activatedAt,
+            )
             const duration = Date.now() - startTime
             IntegrationHistoryModel.create({
                 apiEndpoint: endpoint,
@@ -107,12 +115,28 @@ const integrationService = {
      * @param {number} totalScanned
      * @returns {object} data — { manufactureBatchlot, date, dmcTotalActivated, dmcTotalScanned, lrtActivatedCount, isMatched }
      */
-    sendDailyConfirmation: async (manufactureBatchlot, date, totalActivated, totalScanned, module) => {
+    sendDailyConfirmation: async (
+        manufactureBatchlot,
+        date,
+        totalActivated,
+        totalScanned,
+        module,
+    ) => {
         const startTime = Date.now()
         const endpoint = '/v1/dmc/daily-confirmation'
-        const payload = { manufactureBatchlot, date, totalActivated, totalScanned }
+        const payload = {
+            manufactureBatchlot,
+            date,
+            totalActivated,
+            totalScanned,
+        }
         try {
-            const response = await integrationClient.sendDailyConfirmation(manufactureBatchlot, date, totalActivated, totalScanned)
+            const response = await integrationClient.sendDailyConfirmation(
+                manufactureBatchlot,
+                date,
+                totalActivated,
+                totalScanned,
+            )
             const duration = Date.now() - startTime
 
             IntegrationHistoryModel.create({

@@ -36,10 +36,11 @@ const authController = {
     },
     changePassword: async (req, res, next) => {
         try {
-            const { newPassword } = req.body
+            const { newPassword, confirmNewPassword } = req.body
             const result = await authService.changePassword(
                 req.user,
                 newPassword,
+                confirmNewPassword,
             )
             return res.status(200).json(response.success(result))
         } catch (error) {

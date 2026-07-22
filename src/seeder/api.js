@@ -119,6 +119,83 @@ async function apiSeeder() {
             api: '/tag/delete',
             description: 'Xóa tag',
         },
+        // Goods Receipt (Nhập kho)
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188fef7'),
+            api: '/goodsReceipt/getAll',
+            description: 'Xem danh sách lô nhập kho',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188fef8'),
+            api: '/goodsReceipt/getById',
+            description: 'Xem chi tiết lô nhập kho theo id',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188fef9'),
+            api: '/goodsReceipt/getScanning',
+            description: 'Lấy lô nhập kho đang quét',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188fefa'),
+            api: '/goodsReceipt/getBatchlotInfo',
+            description: 'Đồng bộ thông tin lô hàng từ QAA',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188fefb'),
+            api: '/goodsReceipt/getCompletionSummary',
+            description: 'Thống kê hoàn thành lô hàng',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188fefc'),
+            api: '/goodsReceipt/getAllConfigs',
+            description: 'Xem cấu hình đóng gói',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188fefd'),
+            api: '/goodsReceipt/createConfig',
+            description: 'Tạo cấu hình đóng gói mới',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188fefe'),
+            api: '/goodsReceipt/unPack',
+            description: 'Hủy đóng thùng/quét lại',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188feff'),
+            api: '/goodsReceipt/updateConfig',
+            description: 'Cập nhật cấu hình đóng gói',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188ff00'),
+            api: '/goodsReceipt/deleteConfig',
+            description: 'Xóa cấu hình đóng gói',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188ff01'),
+            api: '/goodsReceipt/update',
+            description: 'Cập nhật đơn hàng nhập kho',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188ff02'),
+            api: '/goodsReceipt/activateQRcode',
+            description: 'Kích hoạt mã QR lẻ',
+        },
+        // Integration History (Lịch sử tích hợp)
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188ff03'),
+            api: '/integrationHistory/getAll',
+            description: 'Xem lịch sử tích hợp',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188ff04'),
+            api: '/integrationHistory/getById',
+            description: 'Xem chi tiết lịch sử tích hợp theo id',
+        },
+        {
+            _id: new Types.ObjectId('69428016b05eb437b188ff05'),
+            api: '/integrationHistory/delete',
+            description: 'Xóa lịch sử tích hợp',
+        },
     ])
     logger.info('Apis seeded')
 }

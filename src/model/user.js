@@ -17,6 +17,14 @@ const userSchema = new Schema(
             type: Types.ObjectId,
             ref: 'roles',
         },
+        failedLoginAttempts: {
+            type: Number,
+            default: 0,
+        },
+        isLocked: {
+            type: Boolean,
+            default: false,
+        },
     },
     { timestamps: true },
 )

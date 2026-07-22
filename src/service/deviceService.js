@@ -7,6 +7,7 @@ const { buildSearchRegex } = require('../util/regex')
 // Map deviceType → trạng thái connected tương ứng trong deviceManager.getStatus()
 const TYPE_CONNECTED_MAP = (runtime) => ({
     SCANNER_IMPORT: runtime.importLine.scanner.connected,
+    SCANNER_ZIP_MASTER_CODE: runtime.importLine.scannerZipMasterCode.connected,
     SCANNER_EXPORT_ENTRY: runtime.exportLine.entryScanner.connected,
     SCANNER_EXPORT_EXIT: runtime.exportLine.exitScanner.connected,
     PRINTER_DOMINO: runtime.exportLine.printer.connected,
@@ -18,15 +19,17 @@ const deviceService = {
             search = buildSearchRegex(search)
             page = Number(page)
             limit = Number(limit)
-            const deviceType = process.env.ROLE || "ROLE_IMPORT"
-            let type = ""
+            const deviceType = process.env.ROLE || 'ROLE_IMPORT'
+            let type = ''
 
-            if (deviceType == "ROLE_IMPORT") {
-                typeFilter = ["SCANNER_IMPORT", "SCANNER_ZIP_MASTER_CODE"]
+            if (deviceType == 'ROLE_IMPORT') {
+                typeFilter = ['SCANNER_IMPORT', 'SCANNER_ZIP_MASTER_CODE']
             }
             const filter = {
                 deviceName: search,
-                deviceType: Array.isArray(typeFilter) ? { $in: typeFilter } : typeFilter
+                deviceType: Array.isArray(typeFilter)
+                    ? { $in: typeFilter }
+                    : typeFilter,
             }
 
             const [items, totalItems] = await Promise.all([
@@ -37,7 +40,12 @@ const deviceService = {
                 DeviceModel.countDocuments({ deviceName: search }),
             ])
 
-            return { items, page, totalItems, totalPage: Math.ceil(totalItems / limit) }
+            return {
+                items,
+                page,
+                totalItems,
+                totalPage: Math.ceil(totalItems / limit),
+            }
         } catch (error) {
             throw error
         }
@@ -58,7 +66,10 @@ const deviceService = {
             const checkDevice = await DeviceModel.findById(deviceId)
             if (!checkDevice) throw new BadReq(errorCode.DEVICE_NOT_FOUND)
 
-            const checkName = await DeviceModel.findOne({ deviceName: device.deviceName, _id: { $ne: deviceId } })
+            const checkName = await DeviceModel.findOne({
+                deviceName: device.deviceName,
+                _id: { $ne: deviceId },
+            })
             if (checkName) throw new BadReq(errorCode.DEVICE_EXISTED)
 
             if (device.host && device.port && device.isEnable) {
@@ -69,27 +80,26 @@ const deviceService = {
                 switch (checkDevice.deviceType) {
                     case 'SCANNER_IMPORT':
                         await deviceManager.connectImportLine(checkDevice)
-                        break;
+                        break
                     case 'SCANNER_ZIP_MASTER_CODE':
                         await deviceManager.connectZipMasterCode(checkDevice)
-                        break;
-
+                        break
                 }
-
             } else {
                 switch (checkDevice.deviceType) {
                     case 'SCANNER_IMPORT':
                         await deviceManager.disconnectImportLine()
-                        break;
+                        break
 
                     case 'SCANNER_ZIP_MASTER_CODE':
                         await deviceManager.disconnectZipMasterCode()
-                        break;
-
+                        break
                 }
-
             }
-            const data = await DeviceModel.findByIdAndUpdate(deviceId, device, { new: true, projection: { __v: 0 } })
+            const data = await DeviceModel.findByIdAndUpdate(deviceId, device, {
+                new: true,
+                projection: { __v: 0 },
+            })
             return data
         } catch (error) {
             throw error
@@ -101,9 +111,15 @@ const deviceService = {
      */
     getStatus: async () => {
         try {
-            const devices = await DeviceModel.find({}, { __v: 0 }).sort({ createdAt: 1 }).lean()
+            const devices = await DeviceModel.find({}, { __v: 0 })
+                .sort({ createdAt: 1 })
+                .lean()
+
             const connectedMap = TYPE_CONNECTED_MAP(deviceManager.getStatus())
-            return devices.map((d) => ({ ...d, connected: connectedMap[d.deviceType] ?? false }))
+            return devices.map((d) => ({
+                ...d,
+                connected: connectedMap[d.deviceType] ?? false,
+            }))
         } catch (error) {
             throw error
         }

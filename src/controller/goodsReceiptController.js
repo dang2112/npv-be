@@ -14,7 +14,11 @@ const goodsReceiptController = {
     getAll: async (req, res, next) => {
         try {
             const { search = '', page = 1, limit = 10 } = req.query
-            const result = await goodsReceiptService.getAll(search, Number(page), Number(limit))
+            const result = await goodsReceiptService.getAll(
+                search,
+                Number(page),
+                Number(limit),
+            )
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
@@ -25,7 +29,12 @@ const goodsReceiptController = {
         try {
             const { goodsReceiptId } = req.params
             const { search, status, page, limit } = req.query
-            const result = await goodsReceiptService.getById(goodsReceiptId, { search, status, page, limit })
+            const result = await goodsReceiptService.getById(goodsReceiptId, {
+                search,
+                status,
+                page,
+                limit,
+            })
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
@@ -44,7 +53,21 @@ const goodsReceiptController = {
     getCompletionSummary: async (req, res, next) => {
         try {
             const { goodsReceiptId } = req.params
-            const result = await goodsReceiptService.getCompletionSummary(goodsReceiptId)
+            const result =
+                await goodsReceiptService.getCompletionSummary(goodsReceiptId)
+            return res.status(200).json(response.success(result))
+        } catch (error) {
+            next(error)
+        }
+    },
+    unPack: async (req, res, next) => {
+        try {
+            const { goodsReceiptId } = req.params
+            const { masterCode } = req.body || {}
+            const result = await goodsReceiptService.unPack(
+                goodsReceiptId,
+                masterCode,
+            )
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
@@ -53,7 +76,10 @@ const goodsReceiptController = {
     update: async (req, res, next) => {
         try {
             const { goodsReceiptId } = req.params
-            const result = await goodsReceiptService.update(goodsReceiptId, req.body)
+            const result = await goodsReceiptService.update(
+                goodsReceiptId,
+                req.body,
+            )
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
@@ -62,7 +88,12 @@ const goodsReceiptController = {
     activateQRcode: async (req, res, next) => {
         try {
             const { qrCode, batchlot } = req.body
-            const result = integrationService.activateQRcode(qrCode, new Date().toISOString(), batchlot, 'GOODS_RECEIPT');
+            const result = integrationService.activateQRcode(
+                qrCode,
+                new Date().toISOString(),
+                batchlot,
+                'GOODS_RECEIPT',
+            )
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
@@ -71,7 +102,11 @@ const goodsReceiptController = {
     getAllConfigs: async (req, res, next) => {
         try {
             const { search = '', page = 1, limit = 10 } = req.query
-            const result = await goodsReceiptService.getAllConfigs(search, Number(page), Number(limit))
+            const result = await goodsReceiptService.getAllConfigs(
+                search,
+                Number(page),
+                Number(limit),
+            )
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
@@ -80,7 +115,10 @@ const goodsReceiptController = {
     updateConfig: async (req, res, next) => {
         try {
             const { goodsReceiptConfigId } = req.params
-            const result = await goodsReceiptService.updateConfig(goodsReceiptConfigId, req.body)
+            const result = await goodsReceiptService.updateConfig(
+                goodsReceiptConfigId,
+                req.body,
+            )
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)
@@ -89,7 +127,8 @@ const goodsReceiptController = {
     deleteConfig: async (req, res, next) => {
         try {
             const { goodsReceiptConfigId } = req.params
-            const result = await goodsReceiptService.deleteConfig(goodsReceiptConfigId)
+            const result =
+                await goodsReceiptService.deleteConfig(goodsReceiptConfigId)
             return res.status(200).json(response.success(result))
         } catch (error) {
             next(error)

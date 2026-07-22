@@ -18,6 +18,8 @@ const integrationClient = {
         manufactureBatchlot = normalizeBatchlot(manufactureBatchlot)
         const body = { manufactureBatchlot }
         if (createdAt) body.createdAt = createdAt
+        // http://localhost:3099
+        console.log(body)
         return await client.post('/v1/dmc/batchlot/sync', body)
     },
 
@@ -30,7 +32,12 @@ const integrationClient = {
         }),
 
     // POST /v1/dmc/daily-confirmation
-    sendDailyConfirmation: async (manufactureBatchlot, date, totalActivated, totalScanned) =>
+    sendDailyConfirmation: async (
+        manufactureBatchlot,
+        date,
+        totalActivated,
+        totalScanned,
+    ) =>
         await client.post('/v1/dmc/daily-confirmation', {
             manufactureBatchlot,
             date,
