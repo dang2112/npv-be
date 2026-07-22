@@ -298,6 +298,7 @@ const goodsReceiptService = {
             const receipt = await GoodsReceiptModel.findById(
                 goodsReceiptId,
             ).populate('goodsReceiptDetails')
+
             if (!receipt) throw new BadReq(errorCode.GOODS_RECEIPT_NOT_FOUND)
             // if (receipt.status === 'COMPLETED') {
             //     throw new BadReq(errorCode.GOODS_RECEIPT_COMPLETED)
@@ -588,12 +589,8 @@ const goodsReceiptService = {
             // const currentScannedCount =
             //   configScanData.item.length + configScanData.itemError.length
 
-            const successItems = configScanData.item.filter(
-                (scan) => scan.activationStatus === 'SUCCESS',
-            )
-
             const isCartonFull =
-                successItems >= configScanData.quantityPerCarton
+                configScanData.item.length >= configScanData.quantityPerCarton
 
             // 2. XỬ LÝ KHI THÙNG ĐÃ ĐẦY (Chờ quét Master Code)
             if (isCartonFull) {

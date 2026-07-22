@@ -65,7 +65,7 @@ const errorCode = {
     },
     INTERNAL_SERVER_ERROR: {
         code: 500,
-        message: 'Lỗi hệ thống. Vui lòng thử lại sau!',
+        message: 'Lỗi kết nối với hệ thống Qaa. Vui lòng thử lại sau!',
     },
     ACCOUNT_LOCKED: {
         code: 15,
